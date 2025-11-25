@@ -8,7 +8,7 @@ from model_siamese import build_encoder   # import your encoder builder
 
 # --- CONFIG ---
 ENCODER_PATH = "./models/encoder.h5"
-DATASET_ROOT = "/Users/jkaur/Documents/GitHub/PWS-SolarML/MLReferences"
+DATASET_ROOT = "../MLReferences"
 CLEAN_DIR = os.path.join(DATASET_ROOT, "Clean")
 DIRTY_DIR = os.path.join(DATASET_ROOT, "Dirty")
 IMG_SIZE = (224,224)

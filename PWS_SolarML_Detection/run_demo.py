@@ -8,7 +8,7 @@ import tensorflow as tf
 tf.get_logger().setLevel('ERROR')  # suppress TF warnings
 
 # simple single image score
-my_base_directory = "/Users/jkaur/Documents/GitHub/PWS-SolarML/MLReferences"
+my_base_directory = "../MLReferences"
 img = f"{my_base_directory}/Dirty/Snow-Covered/Snow (28).jpg"  # frame path
 score = get_dirt_score(img)
 print("Overall dirt score for image:", score)
