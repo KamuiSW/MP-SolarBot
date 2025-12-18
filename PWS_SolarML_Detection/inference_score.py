@@ -82,7 +82,8 @@ def get_tile_scores(image_path, tile_px=224, stride_px=None, show_heatmap=False,
             tile_panel_mask = panel_mask[y:y+tile_px, x:x+tile_px]
             panel_ratio = np.sum(tile_panel_mask > 0) / (tile_px * tile_px)
 
-            # NEW: ignore tiles not mostly panel
+            # CHANGE: ignore tiles not mostly panel
+            # Tiles are only evaluated if ≥ 60% of pixels belong to the panel
             if panel_ratio < 0.6:
                 continue
 
