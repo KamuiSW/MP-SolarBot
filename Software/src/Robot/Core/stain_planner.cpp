@@ -60,6 +60,16 @@ bool buildStainVisitPlan(const std::string& stainsJsonl,
         }
     }
 
+    // Return to start
+    while(cx != startX){
+        cx += (startX > cx ? 1 : -1);
+        pushCell(cx,cy);
+    }
+    while(cy != startY){
+        cy += (startY > cy ? 1 : -1);
+        pushCell(cx,cy);
+    }
+
     std::ofstream f(outJson);
     if(!f.is_open()) return false;
 

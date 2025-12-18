@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <set>
 
 #include "config.h"
 #include "executor.h"
@@ -221,7 +222,7 @@ bool runExecuteNavigation() {
 
     std::vector<Stain> stainCache = loadStainsJsonl(STAINS_JSONL_PATH);
 
-    const int CHECK_EVERY_N_CELLS = 3;
+    const int CHECK_EVERY_N_CELLS = 1;
     const int DEDUPE_RADIUS_CELLS = 2;
 
     int cellCounter = 0;
@@ -285,6 +286,9 @@ bool runExecuteNavigation() {
             int sy = stainPath.front().y;
             Direction d = Direction::UP;
 
+            auto stains = loadStainsJsonl(STAINS_JSONL_PATH);
+            std::set<std::pair<int,int>> cleaned;
+
             for(size_t i=1;i<stainPath.size();i++){
                 int tx = stainPath[i].x;
                 int ty = stainPath[i].y;
@@ -294,21 +298,30 @@ bool runExecuteNavigation() {
                     d = turnTo(d, needed, drive);
                     drive.forwardCell();
                     sx += (tx > sx ? 1 : -1);
+                    // Check for stain
+                    for(const auto& st : stains){
+                        if(st.x == sx && st.y == sy && cleaned.find({sx,sy}) == cleaned.end()){
+                            intensiveCleanAt(sx, sy, 5000);
+                            cleaned.insert({sx,sy});
+                        }
+                    }
                 }
                 while(sy != ty){
                     Direction needed = (ty > sy) ? Direction::UP : Direction::DOWN;
                     d = turnTo(d, needed, drive);
                     drive.forwardCell();
                     sy += (ty > sy ? 1 : -1);
+                    // Check for stain
+                    for(const auto& st : stains){
+                        if(st.x == sx && st.y == sy && cleaned.find({sx,sy}) == cleaned.end()){
+                            intensiveCleanAt(sx, sy, 5000);
+                            cleaned.insert({sx,sy});
+                        }
+                    }
                 }
             }
 
             drive.stop();
-
-            auto stains = loadStainsJsonl(STAINS_JSONL_PATH);
-            for(const auto& t : stains){
-                intensiveCleanAt(t.x, t.y, 5000);
-            }
         }
     }
 
