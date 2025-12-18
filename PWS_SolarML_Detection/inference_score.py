@@ -6,6 +6,7 @@ from skimage.util import view_as_windows
 import cv2
 import os
 from model_siamese import build_encoder
+from panel_mask import get_panel_mask
 
 ENCODER_PATH = "./models/encoder.h5"
 CLEAN_REF_NPY = "./models/clean_reference.npy"
@@ -60,36 +61,37 @@ def get_dirt_score(image_path):
 
 # Tiling helpers: split an image into tiles with overlap if needed
 def get_tile_scores(image_path, tile_px=224, stride_px=None, show_heatmap=False, out_heatmap=None):
-    # Uses original image resolution to cut tiles, resize tiles to model input for encoder
     img = cv2.imread(image_path)
     if img is None:
         raise ValueError("Could not read image: " + image_path)
+
     h, w, _ = img.shape
+
     if stride_px is None:
-        stride_px = tile_px  # non-overlapping by default
+        stride_px = tile_px
+
+    # NEW: compute panel mask once
+    panel_mask = get_panel_mask(img)
+
     tiles = []
     positions = []
+
     for y in range(0, h - tile_px + 1, stride_px):
         for x in range(0, w - tile_px + 1, stride_px):
+
+            tile_panel_mask = panel_mask[y:y+tile_px, x:x+tile_px]
+            panel_ratio = np.sum(tile_panel_mask > 0) / (tile_px * tile_px)
+
+            # NEW: ignore tiles not mostly panel
+            if panel_ratio < 0.6:
+                continue
+
             patch = img[y:y+tile_px, x:x+tile_px]
             tiles.append(patch)
-            positions.append((x,y))
-    # handle right/bottom edges if they are left out
-    if (w - tile_px) % stride_px != 0:
-        x = w - tile_px
-        for y in range(0, h - tile_px + 1, stride_px):
-            patch = img[y:y+tile_px, x:x+tile_px]
-            tiles.append(patch); positions.append((x,y))
-    if (h - tile_px) % stride_px != 0:
-        y = h - tile_px
-        for x in range(0, w - tile_px + 1, stride_px):
-            patch = img[y:y+tile_px, x:x+tile_px]
-            tiles.append(patch); positions.append((x,y))
-    if (w - tile_px) % stride_px != 0 and (h - tile_px) % stride_px != 0:
-        patch = img[h-tile_px:h, w-tile_px:w]
-        tiles.append(patch); positions.append((w-tile_px, h-tile_px))
+            positions.append((x, y))
 
     scores = []
+
     for t in tiles:
         arr = cv2.resize(t, IMG_SIZE)
         arr = arr.astype("float32") / 255.0
@@ -98,25 +100,28 @@ def get_tile_scores(image_path, tile_px=224, stride_px=None, show_heatmap=False,
         score = normalize_distance(d)
         scores.append(score)
 
-    # Build heatmap if requested
     if show_heatmap:
         heatmap = np.zeros((h, w), dtype=np.float32)
         counts = np.zeros((h, w), dtype=np.int32)
-        for (x,y), s in zip(positions, scores):
+
+        for (x, y), s in zip(positions, scores):
             heatmap[y:y+tile_px, x:x+tile_px] += s
             counts[y:y+tile_px, x:x+tile_px] += 1
-        counts[counts==0] = 1
+
+        counts[counts == 0] = 1
         heatmap = heatmap / counts
-        # Normalize to 0-255 for visualization
+
         vis = np.clip(heatmap, 0, 100) / 100.0 * 255.0
         vis = vis.astype("uint8")
         vis_color = cv2.applyColorMap(vis, cv2.COLORMAP_JET)
         overlay = cv2.addWeighted(img, 0.6, vis_color, 0.4, 0)
+
         if out_heatmap:
             cv2.imwrite(out_heatmap, overlay)
+
         return positions, scores, overlay
-    else:
-        return positions, scores, None
+
+    return positions, scores, None
 
 def classify_dirt(score):
     if score < 10:
