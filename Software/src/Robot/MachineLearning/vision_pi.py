@@ -1,55 +1,75 @@
-﻿import cv2
+﻿import json
+import time
+import cv2
 import numpy as np
 import tensorflow.lite as tflite
-import time
 
-IMG_SIZE = (160, 160)
-REFERENCE_IMG_PATH = "clean_reference.jpg"
-MODEL_PATH = "siamese_clean_detector.tflite"
+CAM_INDEX = 0
+IMG_SIZE = (224, 224)
 
-interpreter = tflite.Interpreter(model_path=MODEL_PATH)
-interpreter.allocate_tensors()
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
+ENCODER_TFLITE = "encoder.tflite"
+CLEAN_REF_NPY = "clean_reference.npy"
+CALIB_JSON = "calibration.json"
 
-def preprocess(img):
-    img = cv2.resize(img, IMG_SIZE)
-    img = np.expand_dims(img.astype(np.float32) / 255.0, axis=0)
+def load_calib(path):
+    with open(path, "r") as f:
+        c = json.load(f)
+    return float(c["min_dist"]), float(c["max_dist"])
+
+def normalize_distance(d, min_d, max_d):
+    if d <= min_d:
+        return 0.0
+    span = max_d - min_d
+    if span <= 1e-9:
+        return float(d / (max_d + 1e-6) * 100.0)
+    return float((d - min_d) / span * 100.0)
+
+def preprocess_bgr(frame):
+    img = cv2.resize(frame, IMG_SIZE)
+    img = img.astype(np.float32) / 255.0
+    img = np.expand_dims(img, axis=0)
     return img
 
-#loads the refenrece image for clean
-ref = cv2.imread(REFERENCE_IMG_PATH)
-if ref is None:
-    raise RuntimeError("clean_reference.jpg not found")
+def main():
+    clean_ref = np.load(CLEAN_REF_NPY).astype(np.float32)
+    min_d, max_d = load_calib(CALIB_JSON)
 
-cap = cv2.VideoCapture(0)
-if not cap.isOpened():
-    raise RuntimeError("cameraless")
+    interpreter = tflite.Interpreter(model_path=ENCODER_TFLITE)
+    interpreter.allocate_tensors()
+    inp = interpreter.get_input_details()[0]
+    out = interpreter.get_output_details()[0]
 
-print("running stain detection")
+    cap = cv2.VideoCapture(CAM_INDEX)
+    if not cap.isOpened():
+        print(json.dumps({"ok": False, "error": "camera_open_failed"}))
+        return
 
-while True:
     ret, frame = cap.read()
-    if not ret:
-        continue
+    cap.release()
 
-    ref_proc = preprocess(ref)
-    cur_proc = preprocess(frame)
+    if not ret or frame is None:
+        print(json.dumps({"ok": False, "error": "frame_read_failed"}))
+        return
 
-    interpreter.set_tensor(input_details[0]['index'], ref_proc)
-    interpreter.set_tensor(input_details[1]['index'], cur_proc)
+    x = preprocess_bgr(frame)
+    interpreter.set_tensor(inp["index"], x)
     interpreter.invoke()
+    emb = interpreter.get_tensor(out["index"])[0].astype(np.float32)
 
-    score = interpreter.get_tensor(output_details[0]['index'])[0][0]
-    dirty = score > 0.5
+    d = float(np.linalg.norm(emb - clean_ref))
+    score = normalize_distance(d, min_d, max_d)
 
-    text = f"Dirty: {dirty} ({score:.2f})"
-    color = (0, 0, 255) if dirty else (0, 255, 0)
-    cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-    cv2.imshow("stain Detection", frame)
+    dirty = score >= 40.0
+    level = "CLEAN" if score < 10 else ("LIGHT" if score < 40 else ("MODERATE" if score < 70 else "HEAVY"))
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+    print(json.dumps({
+        "ok": True,
+        "dirty": bool(dirty),
+        "score": float(score),
+        "level": level,
+        "dist": d,
+        "ts": time.time()
+    }))
 
-cap.release()
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    main()

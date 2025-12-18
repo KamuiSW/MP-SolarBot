@@ -3,111 +3,129 @@
 #include <vector>
 #include <chrono>
 #include <thread>
+#include <set>
+#include <algorithm>
+#include <fstream>
 
-// Map size in cells
-const int MAP_W = 20;
-const int MAP_H = 20;
+#include "config.h"
+#include "mapping.h"
 
-// Each cell represents this many centimeters in the real world
-const float CELL_SIZE_CM = 5.0f;
-
-const float CLIFF_THRESHOLD_CM = 30.0f;
-
-const int TRIG_FRONT = 2;
-const int ECHO_FRONT = 3;
-
-const int TRIG_BACK  = 4;
-const int ECHO_BACK  = 17;
-
-const int TRIG_LEFT  = 27;
-const int ECHO_LEFT  = 22;
-
-const int TRIG_RIGHT = 10;
-const int ECHO_RIGHT = 9;
-
-struct Cell {
-    bool isEdge = false;
-    bool onPath = false;
-};
-
-class PanelMap {
+class Stepper {
 public:
-    int w, h;
-    std::vector<std::vector<Cell>> grid;
+    int stepPin, dirPin, enPin;
+    bool forwardLevel;
 
-    PanelMap(int width, int height) : w(width), h(height) {
-        grid.resize(h, std::vector<Cell>(w));
+    Stepper(int step, int dir, int en, bool fwdLevel)
+        : stepPin(step), dirPin(dir), enPin(en), forwardLevel(fwdLevel) {}
+
+    void begin() {
+        pinMode(stepPin, OUTPUT);
+        pinMode(dirPin, OUTPUT);
+        pinMode(enPin, OUTPUT);
+        digitalWrite(enPin, LOW);
+        digitalWrite(stepPin, LOW);
+        digitalWrite(dirPin, forwardLevel ? HIGH : LOW);
     }
 
-    void markEdge(int x, int y) {
-        if (x >= 0 && x < w && y >= 0 && y < h) {
-            grid[y][x].isEdge = true;
-        }
+    void enable(bool on) {
+        digitalWrite(enPin, on ? LOW : HIGH);
     }
 
-    void markPath(int x, int y) {
-        if (x >= 0 && x < w && y >= 0 && y < h) {
-            grid[y][x].onPath = true;
-        }
+    void setForward(bool forward) {
+        bool lvl = forward ? forwardLevel : !forwardLevel;
+        digitalWrite(dirPin, lvl ? HIGH : LOW);
     }
 
-    void printAscii(int robotX, int robotY) {
-        //E = edge, . = path, R = robot, space = unknown
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                char c = ' ';
-                const Cell& cell = grid[y][x];
-
-                if (cell.onPath) c = '.';
-                if (cell.isEdge) c = 'E';
-                if (x == robotX && y == robotY) c = 'R';
-
-                std::cout << c;
-            }
-            std::cout << "\n";
-        }
-        for (int i = 0; i < w; ++i) std::cout << "-";
-        std::cout << "\n";
+    void stepOnce() {
+        digitalWrite(stepPin, HIGH);
+        delayMicroseconds(STEP_PULSE_US);
+        digitalWrite(stepPin, LOW);
     }
 };
 
-enum class Direction {
-    UP = 0,
-    RIGHT = 1,
-    DOWN = 2,
-    LEFT = 3
-};
-
-class RobotLogic {
+class DifferentialDrive {
 public:
-    int x;
-    int y;
-    Direction dir;
+    Stepper left;
+    Stepper right;
 
-    RobotLogic(int startX, int startY)
-        : x(startX), y(startY), dir(Direction::UP) {}
+    DifferentialDrive(Stepper l, Stepper r) : left(l), right(r) {}
 
-    void stepForward() {
-        switch (dir) {
-        case Direction::UP:    y -= 1; break;
-        case Direction::DOWN:  y += 1; break;
-        case Direction::LEFT:  x -= 1; break;
-        case Direction::RIGHT: x += 1; break;
+    void begin() {
+        left.begin();
+        right.begin();
+        left.enable(true);
+        right.enable(true);
+    }
+
+    void stop() {
+        left.enable(false);
+        right.enable(false);
+    }
+
+    void forwardCell() {
+        left.setForward(true);
+        right.setForward(true);
+        for(int i=0;i<STEPS_PER_CELL;i++){
+            left.stepOnce();
+            right.stepOnce();
+            delayMicroseconds(STEP_DELAY_US);
         }
     }
 
-    void turnLeft() {
-        dir = static_cast<Direction>((static_cast<int>(dir) + 3) % 4);
+    void turnRight90() {
+        left.setForward(true);
+        right.setForward(false);
+        for(int i=0;i<STEPS_PER_90_TURN;i++){
+            left.stepOnce();
+            right.stepOnce();
+            delayMicroseconds(STEP_DELAY_US);
+        }
     }
 
-    void turnRight() {
-        dir = static_cast<Direction>((static_cast<int>(dir) + 1) % 4);
-    }
-
-    void markCurrentAsPath(PanelMap& map) {
-        map.markPath(x, y);
+    void turnLeft90() {
+        left.setForward(false);
+        right.setForward(true);
+        for(int i=0;i<STEPS_PER_90_TURN;i++){
+            left.stepOnce();
+            right.stepOnce();
+            delayMicroseconds(STEP_DELAY_US);
+        }
     }
 };
+
+enum class Direction { UP=0, RIGHT=1, DOWN=2, LEFT=3 };
+
+static const char* dirName(Direction d) {
+    switch(d){
+        case Direction::UP: return "UP";
+        case Direction::RIGHT: return "RIGHT";
+        case Direction::DOWN: return "DOWN";
+        case Direction::LEFT: return "LEFT";
+    }
+    return "?";
+}
+
+struct Pose {
+    int x=0, y=0;
+    Direction dir=Direction::UP;
+};
+
+static void stepForward(Pose& p) {
+    switch(p.dir){
+        case Direction::UP:    p.y += 1; break;
+        case Direction::DOWN:  p.y -= 1; break;
+        case Direction::LEFT:  p.x -= 1; break;
+        case Direction::RIGHT: p.x += 1; break;
+    }
+}
+
+static void turnRight(Pose& p) {
+    p.dir = static_cast<Direction>((static_cast<int>(p.dir) + 1) % 4);
+}
+
+static void turnLeft(Pose& p) {
+    p.dir = static_cast<Direction>((static_cast<int>(p.dir) + 3) % 4);
+}
 
 class Ultrasonic {
 public:
@@ -126,7 +144,6 @@ public:
     float readDistanceCm(float timeoutSeconds = 0.03f) {
         digitalWrite(trigPin, LOW);
         delayMicroseconds(2);
-
         digitalWrite(trigPin, HIGH);
         delayMicroseconds(10);
         digitalWrite(trigPin, LOW);
@@ -135,132 +152,168 @@ public:
         while (digitalRead(echoPin) == LOW) {
             auto now = std::chrono::high_resolution_clock::now();
             std::chrono::duration<float> elapsed = now - start;
-            if (elapsed.count() > timeoutSeconds) {
-                return 999.0f;
-            }
+            if (elapsed.count() > timeoutSeconds) return 999.0f;
         }
-        auto pulseStart = std::chrono::high_resolution_clock::now();
 
+        auto pulseStart = std::chrono::high_resolution_clock::now();
         while (digitalRead(echoPin) == HIGH) {
             auto now = std::chrono::high_resolution_clock::now();
             std::chrono::duration<float> elapsed = now - pulseStart;
-            if (elapsed.count() > timeoutSeconds) {
-                return 999.0f;
-            }
+            if (elapsed.count() > timeoutSeconds) return 999.0f;
         }
-        auto pulseEnd = std::chrono::high_resolution_clock::now();
 
+        auto pulseEnd = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> pulseDuration = pulseEnd - pulseStart;
         float seconds = pulseDuration.count();
-
-        float distanceCm = (seconds * 34300.0f) / 2.0f;
-        return distanceCm;
+        return (seconds * 34300.0f) / 2.0f;
     }
 
     bool isCliff() {
         float d = readDistanceCm();
-        if (d <= 0 || d > 900.0f) {
-            return true;
-        }
+        if (d <= 0 || d > 900.0f) return true;
         return d > CLIFF_THRESHOLD_CM;
     }
 };
 
 struct CliffSensors {
-    bool frontCliff = false;
-    bool backCliff  = false;
-    bool leftCliff  = false;
-    bool rightCliff = false;
+    bool frontCliff=false;
+    bool leftCliff=false;
 };
 
-CliffSensors readCliffSensors(Ultrasonic& front, Ultrasonic& back, Ultrasonic& left, Ultrasonic& right) {
+static CliffSensors readCliffSensors(Ultrasonic& front, Ultrasonic& left) {
     CliffSensors cs;
     cs.frontCliff = front.isCliff();
-    cs.backCliff  = back.isCliff();
     cs.leftCliff  = left.isCliff();
-    cs.rightCliff = right.isCliff();
     return cs;
 }
 
-void motorsInit() {
+static void exportMapJson(const std::set<std::pair<int,int>>& perimeter,
+                          const std::vector<std::pair<int,int>>& corners)
+{
+    std::ofstream f(MAP_JSON_PATH);
+    if(!f.is_open()) return;
 
-}
+    f << "{\n";
+    f << "  \"cell_size_cm\": " << CELL_SIZE_CM << ",\n";
 
-void moveForwardOneCell() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-}
-
-void turnRight90() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-}
-
-void turnLeft90() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-}
-
-void updateEdgeMapFromCliff(PanelMap& map, RobotLogic& robot, const CliffSensors& cs) {
-    if (cs.frontCliff || cs.backCliff || cs.leftCliff || cs.rightCliff) {
-        map.markEdge(robot.x, robot.y);
+    f << "  \"perimeter\": [\n";
+    bool first = true;
+    for (auto &p : perimeter) {
+        if(!first) f << ",\n";
+        first = false;
+        f << "    {\"x\": " << p.first << ", \"y\": " << p.second << "}";
     }
+    f << "\n  ],\n";
+
+    f << "  \"corners\": [\n";
+    for (size_t i=0;i<corners.size();i++){
+        f << "    {\"x\": " << corners[i].first << ", \"y\": " << corners[i].second << "}";
+        if(i+1<corners.size()) f << ",";
+        f << "\n";
+    }
+    f << "  ]\n";
+    f << "}\n";
 }
 
-int main() {
-    if (wiringPiSetupGpio() == -1) {
-        std::cerr << "Failed to init wiringPi (BCM mode).\n";
-        return 1;
-    }
+bool runMapping() {
+    if (wiringPiSetupGpio() == -1) return false;
 
     Ultrasonic sonarFront(TRIG_FRONT, ECHO_FRONT);
-    Ultrasonic sonarBack(TRIG_BACK, ECHO_BACK);
     Ultrasonic sonarLeft(TRIG_LEFT, ECHO_LEFT);
-    Ultrasonic sonarRight(TRIG_RIGHT, ECHO_RIGHT);
-
     sonarFront.begin();
-    sonarBack.begin();
     sonarLeft.begin();
-    sonarRight.begin();
 
-    PanelMap map(MAP_W, MAP_H);
-    RobotLogic robot(MAP_W / 2, MAP_H / 2);
+    Stepper leftMotor(L_STEP, L_DIR, L_EN, L_DIR_FORWARD_LEVEL);
+    Stepper rightMotor(R_STEP, R_DIR, R_EN, R_DIR_FORWARD_LEVEL);
+    DifferentialDrive drive(leftMotor, rightMotor);
+    drive.begin();
 
-    motorsInit();
+    Pose pose;
+    std::set<std::pair<int,int>> perimeterCells;
+    std::vector<std::pair<int,int>> corners;
 
-    std::cout << "Robot edge-mapping demo start.\n";
+    enum class State { FIND_EDGE_LEFT, FIND_CORNER, TRACE_PERIMETER, DONE, FAIL };
+    State state = State::FIND_EDGE_LEFT;
 
-    int stepCounter = 0;
+    const int MAX_STEPS = 2000;
+    int steps = 0;
+    int rightTurns = 0;
+    bool originSet = false;
 
-    while (true) {
-        CliffSensors cs = readCliffSensors(sonarFront, sonarBack, sonarLeft, sonarRight);
+    while (steps++ < MAX_STEPS && state != State::DONE && state != State::FAIL) {
+        CliffSensors cs = readCliffSensors(sonarFront, sonarLeft);
 
-        updateEdgeMapFromCliff(map, robot, cs);
+        std::cout << "[Map] step=" << steps
+                  << " state=" << (int)state
+                  << " pose=(" << pose.x << "," << pose.y << ") dir=" << dirName(pose.dir)
+                  << " L=" << cs.leftCliff << " F=" << cs.frontCliff << "\n";
 
-        robot.markCurrentAsPath(map);
-
-        if (cs.frontCliff) {
-            std::cout << "Front cliff detected! Turning right.\n";
-            robot.turnRight();
-            turnRight90();
-        } else {
-            std::cout << "Step forward.\n";
-            robot.stepForward();
-            moveForwardOneCell();
+        if (state == State::FIND_EDGE_LEFT) {
+            if (cs.leftCliff) {
+                state = State::FIND_CORNER;
+            } else {
+                drive.turnRight90();
+                turnRight(pose);
+            }
         }
+        else if (state == State::FIND_CORNER) {
+            if (!cs.leftCliff) {
+                state = State::FIND_EDGE_LEFT;
+                continue;
+            }
 
-        std::cout << "Robot at (" << robot.x << ", " << robot.y << "), dir=";
-        switch (robot.dir) {
-        case Direction::UP:    std::cout << "UP"; break;
-        case Direction::RIGHT: std::cout << "RIGHT"; break;
-        case Direction::DOWN:  std::cout << "DOWN"; break;
-        case Direction::LEFT:  std::cout << "LEFT"; break;
-        }
-        std::cout << std::endl;
+            if (cs.leftCliff && cs.frontCliff) {
+                pose.x = 0;
+                pose.y = 0;
+                pose.dir = Direction::UP;
+                originSet = true;
 
-        ++stepCounter;
-        if (stepCounter % 10 == 0) {
-            map.printAscii(robot.x, robot.y);
+                corners.push_back({0,0});
+                perimeterCells.insert({0,0});
+                rightTurns = 0;
+
+                drive.turnRight90();
+                turnRight(pose);
+                rightTurns++;
+
+                state = State::TRACE_PERIMETER;
+            } else {
+                drive.forwardCell();
+                stepForward(pose);
+                if (originSet) perimeterCells.insert({pose.x, pose.y});
+            }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        else if (state == State::TRACE_PERIMETER) {
+            if (!cs.leftCliff) {
+                drive.turnLeft90();
+                turnLeft(pose);
+                continue;
+            }
+
+            if (cs.frontCliff) {
+                corners.push_back({pose.x, pose.y});
+                perimeterCells.insert({pose.x, pose.y});
+
+                drive.turnRight90();
+                turnRight(pose);
+                rightTurns++;
+
+                if (rightTurns >= 4 && pose.x == 0 && pose.y == 0) {
+                    state = State::DONE;
+                    break;
+                }
+            } else {
+                drive.forwardCell();
+                stepForward(pose);
+                perimeterCells.insert({pose.x, pose.y});
+            }
+        }
     }
 
-    return 0;
+    drive.stop();
+
+    if (state == State::FAIL) return false;
+
+    exportMapJson(perimeterCells, corners);
+    return true;
 }
