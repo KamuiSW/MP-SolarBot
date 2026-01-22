@@ -27,27 +27,29 @@ static bool readFile(const std::string& path, std::string& out) {
     return true;
 }
 
-static bool extractNumberAfterKey(const std::string& s, const std::string& key, double& outVal) {
-    size_t k = s.find("\"" + key + "\"");
-    if(k == std::string::npos) return false;
-    size_t colon = s.find(':', k);
+static bool extractNumberAfterKey(const std::string& s, const std::string& k, double& outVal) {
+    size_t pos = s.find("\"" + k + "\"");
+    if(pos == std::string::npos) return false;
+    size_t colon = s.find(':', pos);
     if(colon == std::string::npos) return false;
 
     size_t start = colon + 1;
-    while(start < s.size() && (s[start] == ' ' || s[start] == '\n' || s[start] == '\r' || s[start] == '\t')) start++;
+    while(start < s.size() && (s[start]==' '||s[start]=='\n'||s[start]=='\r'||s[start]=='\t')) start++;
 
     size_t end = start;
-    while(end < s.size() && ((s[end] >= '0' && s[end] <= '9') || s[end] == '.' || s[end] == '-')) end++;
+    while(end < s.size() && ((s[end]>='0'&&s[end]<='9') || s[end]=='.' || s[end]=='-')) end++;
 
     try { outVal = std::stod(s.substr(start, end - start)); return true; }
     catch(...) { return false; }
 }
 
-static bool extractPerimeterPoints(const std::string& s, std::vector<Pt>& outPts) {
-    size_t k = s.find("\"perimeter\"");
+static bool extractPointsArray(const std::string& s, const std::string& arrayKey, std::vector<Pt>& outPts) {
+    size_t k = s.find("\"" + arrayKey + "\"");
     if(k == std::string::npos) return false;
     size_t lb = s.find('[', k);
     if(lb == std::string::npos) return false;
+
+    // Find matching closing bracket (simple version: first ']' after lb)
     size_t rb = s.find(']', lb);
     if(rb == std::string::npos) return false;
 
@@ -111,6 +113,13 @@ static Grid makeGridBounds(const std::vector<Pt>& perimeter, int margin) {
     g.W = g.maxX - g.minX + 1;
     g.H = g.maxY - g.minY + 1;
     return g;
+}
+
+static void addManhattanToSet(std::unordered_set<long long>& edgeSet, int x0,int y0,int x1,int y1) {
+    int x=x0,y=y0;
+    edgeSet.insert(key(x,y));
+    while(x!=x1){ x += (x1>x)?1:-1; edgeSet.insert(key(x,y)); }
+    while(y!=y1){ y += (y1>y)?1:-1; edgeSet.insert(key(x,y)); }
 }
 
 static void floodFillOutside(const Grid& g,
@@ -185,7 +194,6 @@ static void erodeByChebyshev(const Grid& g,
     if(r <= 0){ dst = src; return; }
 
     std::vector<int> integral((g.W+1)*(g.H+1), 0);
-
     auto I = [&](int x,int y)->int& { return integral[x + y*(g.W+1)]; };
 
     for(int y=1;y<=g.H;y++){
@@ -314,12 +322,32 @@ bool runNavigation() {
     double cellSizeCm = CELL_SIZE_CM;
     extractNumberAfterKey(js, "cell_size_cm", cellSizeCm);
 
+    // Prefer perimeter_trace if available
+    std::vector<Pt> trace;
+    bool hasTrace = extractPointsArray(js, "perimeter_trace", trace);
+
     std::vector<Pt> perimeter;
-    if(!extractPerimeterPoints(js, perimeter)) return false;
+    if(!hasTrace)
+    {
+        if(!extractPointsArray(js, "perimeter", perimeter)) return false;
+    }
+    else
+    {
+        perimeter = trace;
+    }
 
     std::unordered_set<long long> edgeSet;
-    edgeSet.reserve(perimeter.size()*2);
-    for(const auto& p : perimeter) edgeSet.insert(key(p.x,p.y));
+    edgeSet.reserve(perimeter.size()*4);
+
+    // Densify boundary segments (watertight)
+    if(perimeter.size() >= 2){
+        for(size_t i=0;i+1<perimeter.size();i++){
+            addManhattanToSet(edgeSet, perimeter[i].x, perimeter[i].y, perimeter[i+1].x, perimeter[i+1].y);
+        }
+        addManhattanToSet(edgeSet, perimeter.back().x, perimeter.back().y, perimeter.front().x, perimeter.front().y);
+    } else {
+        return false;
+    }
 
     Grid g = makeGridBounds(perimeter, 4);
 
@@ -329,14 +357,23 @@ bool runNavigation() {
     std::vector<uint8_t> inside;
     computeInside(g, edgeSet, outside, inside);
 
+    int insideCount = 0;
+    for(auto v : inside) if(v) insideCount++;
+    if(insideCount == 0) return false;
+
     int stepCells = (int)std::ceil(ROBOT_WIDTH_CM / cellSizeCm);
     stepCells = std::max(1, stepCells);
 
-    int clearanceCells = (int)std::ceil((std::max(ROBOT_WIDTH_CM, ROBOT_LENGTH_CM) * 0.5) / cellSizeCm);
-    clearanceCells = std::max(0, clearanceCells);
+    // More conservative clearance than before (avoid deleting all inside)
+    int clearanceCells = (int)std::ceil((ROBOT_WIDTH_CM * 0.5) / cellSizeCm);
+    clearanceCells = std::max(1, clearanceCells);
 
     std::vector<uint8_t> safeInside;
     erodeByChebyshev(g, inside, clearanceCells, safeInside);
+
+    int safeCount = 0;
+    for(auto v : safeInside) if(v) safeCount++;
+    if(safeCount == 0) return false;
 
     auto path = buildRectSpiral(g, safeInside, stepCells);
     if(path.empty()) return false;

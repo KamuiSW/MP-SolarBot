@@ -1,0 +1,14 @@
+{
+  "cell_size_cm": 5,
+  "perimeter": [
+    {"x": 0, "y": 0}
+  ],
+  "perimeter_trace": [
+  ],
+  "corners": [
+    {"x": 0, "y": 0},
+    {"x": 0, "y": 0},
+    {"x": 0, "y": 0},
+    {"x": 0, "y": 0}
+  ]
+}

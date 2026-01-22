@@ -1,75 +1,52 @@
-# Solar Panel Cleaning Robot
+# Solar Panel Cleaning Robot System
 
-you need to do this to install any packages btw 
-(.\.venv\Scripts\Activate.ps1)
+This repository contains the software stack for our 6VWO graduation masterproof. The system is divided into a C++ Firmware Core (for the physical robot hardware) and a Python/Web Interface (for control, simulation, and visualization).
 
-A Raspberry Pi 5 powered robot designed to autonomously clean solar panels using a combination of mapping, sensors, and machine learning.  
-It maps panel edges, plans a cleaning path, detects uncleaned spots with a camera, and revisits them, all while minimising energy use.
+## System Architecture
 
----
+### 1. Firmware Core (`Software/src/Robot/Core`)
+*   **Language**: C++
+*   **Hardware**: Raspberry Pi (wiringPi)
+*   **Functionality**:
+    *   Motor Control (Stepper Drivers)
+    *   Sensor Fusion (Ultrasonic / Cliff Detection)
+    *   Mapping Algorithm (Edge detection, Perimeter tracing)
+    *   Navigation (Grid-based coverage path planning)
+*   **Compilation**:
+    ```bash
+    g++ main.cpp mapping.cpp navigation.cpp executor.cpp stains.cpp stain_planner.cpp -o robot_core -lwiringPi -std=c++17
+    ```
 
-## Concept Overview
+### 2. Web Interface & Simulation (`Software/src/Robot/Web`)
+*   **Backend**: Python (FastAPI, WebSockets)
+*   **Frontend**: HTML5, Vanilla JS, Canvas API
+*   **Features**:
+    *   Real-time robot status and control.
+    *   **Simulation Mode**: A full pure-Python simulation of the robot's kinematics and sensor logic.
+    *   Interactive Map: Pan, Zoom, and Live Grid.
+    *   Virtual Stain Spawning: Drag-and-drop simulated dirt for testing detection logic.
 
-The robot operates directly on solar panels.  
-Its main goals are:
-- Clean each panel surface fully (no falling off edges).  
-- Detect and re-clean dirty or stained areas using a rear-facing camera.  
-- Conserve as much power as possible for long, unattended operation.
+## Getting Started (Simulation)
 
----
+1.  **Install Dependencies**:
+    ```bash
+    pip install fastapi uvicorn websockets
+    ```
 
-## System Workflow
+2.  **Run the Server**:
+    ```bash
+    python Software/src/Robot/Web/server.py
+    ```
 
-1. **Edge Mapping Phase**
-   - The robot activates ultrasonic sensors to detect the edges of the solar panel.
-   - While driving in a rectangular pattern, it records how long the wheels turn between edges.
-   - From this data, it builds a simple 2D map of the panel area.
+3.  **Access the UI**:
+    Open `http://localhost:8000` in your web browser.
 
-2. **Path Planning**
-   - Using the mapped boundaries, the robot calculates a full cleaning path that covers the panel.
-   - The path data (distances and turning points) is stored locally.
+4.  **Simulate**:
+    *   Toggle **"Sim Mode"** to ON.
+    *   Click **"Start Mapping (Sim)"**.
+    *   Use the **"Spawn Dirt"** button to interact with the environment.
 
-3. **Cleaning & Camera Detection**
-   - During cleaning, the robot follows the saved path using wheel encoder (or similar sensors) feedback.
-   - A rear-mounted camera runs a machine learning model to detect uncleaned or stained areas.
-   - When a dirty area is detected, the coordinates are logged for re-cleaning later.
+## Deployment (Real Hardware)
 
-4. **Re-Cleaning Pass**
-   - After finishing the planned path, the robot revisits the recorded dirty spots.
-   - Once all areas are confirmed clean, the robot shuts down to conserve energy.
-
----
-
-## Hardware Components
-
-- **Raspberry Pi 5** — main controller, handles mapping, motion, and ML image detection.  
-- **Ultrasonic sensors** — detect panel edges and prevent falls.  
-- **Wheel encoders / IMU** — estimate movement and orientation.  
-- **Camera module** — captures rear images for stain detection.  
-- **Motors + Driver** — move and steer the robot.  
-- **Battery Pack** — powers the entire system (single shared source).
-
----
-
-## Energy Optimisation
-
-Even though the Pi 5 and camera must stay on for ML tasks, energy efficiency is achieved through:
-- **Duty-cycled sensors:** Ultrasonic sensors only activate when approaching corners or uncertain areas.  
-- **Lower camera FPS & resolution:** 640×480 @ 5 FPS is enough for stain detection.  
-- **ML models:** use efficient networks.  
-- **System optimizations:** disable HDMI, Bluetooth, LEDs; use `powersave` CPU governor.  
-- **software scheduling:** run ML inference every 1–2 seconds instead of every frame.
-
----
-
-## Future Improvements
-
-- Implement automatic recharging via a docking station.  
-- Use optical flow or visual odometry for more precise movement tracking.  
-- Improve ML model accuracy for dirt classification.  
-- Add adaptive cleaning intensity based on dirt severity.
-
----
-
-### Author
-Developed by [Team 2 KKC]  
+1.  Compile the C++ core on the Raspberry Pi using the command above.
+2.  Run the Python server. It will automatically detect and manage the `robot_core` binary for physical operations if not in Sim Mode.
