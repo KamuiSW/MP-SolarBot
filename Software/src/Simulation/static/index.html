@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SolarBot Control</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #09090b;
+            --panel-bg: #18181b;
+            --border: #27272a;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --danger: #ef4444;
+            --text-main: #e4e4e7;
+            --text-muted: #a1a1aa;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            flex-shrink: 0;
+            z-index: 20;
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+            position: relative;
+            min-width: 200px;
+            max-width: 500px;
+        }
+
+        .sidebar-right {
+            border-left: 1px solid var(--border);
+            border-right: none;
+            right: 0;
+        }
+
+        .resize-handle {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            cursor: col-resize;
+            background: transparent;
+            z-index: 30;
+            transition: background 0.2s;
+        }
+
+        .resize-handle:hover,
+        .resize-handle.active {
+            background: var(--primary);
+        }
+
+        .resize-left {
+            right: -2px;
+        }
+
+        .resize-right {
+            left: -2px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin: 0;
+            background: linear-gradient(to right, #fff, #a1a1aa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            background: #27272a;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        .status-badge.online {
+            color: #4ade80;
+            background: rgba(74, 222, 128, 0.1);
+        }
+
+        .section-header {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        input[type="number"] {
+            background: #27272a;
+            border: 1px solid var(--border);
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: inherit;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        button {
+            background: #27272a;
+            color: white;
+            border: 1px solid var(--border);
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        button:hover {
+            background: #3f3f46;
+        }
+
+        button.primary {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        button.primary:hover {
+            background: var(--primary-hover);
+        }
+
+        button.danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        button.danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .toggle-switch {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+        }
+
+        .switch-track {
+            width: 40px;
+            height: 22px;
+            background: #27272a;
+            border-radius: 11px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .switch-track::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        input:checked+.switch-track {
+            background: var(--primary);
+        }
+
+        input:checked+.switch-track::after {
+            transform: translateX(18px);
+        }
+
+        #main-view {
+            flex-grow: 1;
+            position: relative;
+            background: #000;
+            overflow: hidden;
+            cursor: grab;
+        }
+
+        #main-view:active {
+            cursor: grabbing;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .log-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 100px;
+        }
+
+        .log-area {
+            background: #111;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            flex-grow: 1;
+            overflow-y: auto;
+            color: #4ade80;
+        }
+
+        .log-area.ai {
+            color: #f472b6;
+            flex-grow: 0;
+            height: 100px;
+        }
+
+        #tools-overlay {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            background: rgba(24, 24, 27, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 8px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        #tools-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+
+        .metric-val {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="sidebar" id="sidebar-left">
+        <div class="resize-handle resize-left" onmousedown="startResize(event, 'left')"></div>
+        <div>
+            <h1>SolarBot</h1>
+            <span id="connection-status" class="status-badge">Offline</span>
+        </div>
+
+        <div class="control-group">
+            <div class="toggle-switch">
+                <span>Simulation Mode</span>
+                <label>
+                    <input type="checkbox" id="simToggle" hidden onchange="toggleSim()">
+                    <div class="switch-track"></div>
+                </label>
+            </div>
+            <div class="toggle-switch">
+                <span>Viz Path</span>
+                <label>
+                    <input type="checkbox" id="pathToggle" checked hidden onchange="draw()">
+                    <div class="switch-track"></div>
+                </label>
+            </div>
+        </div>
+
+        <div id="sim-controls" style="display:none;" class="control-group">
+            <div class="section-header">Virtual Environment</div>
+            <input type="number" id="simW" placeholder="Width (cm)" value="200" onchange="updateConfig()">
+            <input type="number" id="simH" placeholder="Height (cm)" value="150" onchange="updateConfig()">
+            <input type="number" id="simSize" placeholder="Robot (cm)" value="28" onchange="updateConfig()">
+            <button onclick="resetSim()">Reset Position</button>
+            <div style="width:100%; height:1px; background:#333; margin:4px 0;"></div>
+
+            <div style="display:flex; gap:4px;">
+                <button style="flex:1" onclick="togglePause()" id="btnPause">Pause</button>
+                <button class="danger" style="flex:1" onclick="wsSend('stop')">Stop</button>
+            </div>
+
+            <div style="font-size:0.8rem; color:#aaa; margin-top:4px;">
+                Speed: <span id="speedVal">1.0x</span>
+            </div>
+            <input type="range" min="1" max="5" step="0.5" value="1" oninput="setSpeed(this.value)" style="width:100%">
+        </div>
+
+        <div class="control-group">
+            <div class="section-header">Actions</div>
+            <button id="btnMap" class="primary" onclick="actionMapping()">Start Mapping</button>
+            <div id="real-buttons" style="display:flex; gap:8px;">
+                <button style="flex:1" onclick="wsSend('start_navigation')">Plan</button>
+                <button style="flex:1" onclick="wsSend('start_execution')">Clean</button>
+            </div>
+            <button class="danger" onclick="wsSend('stop')" id="btnEmerg">Emergency Stop</button>
+        </div>
+
+        <div class="log-container">
+            <div class="section-header">System Log</div>
+            <div id="log-area" class="log-area"></div>
+        </div>
+        <div class="control-group">
+            <button onclick="downloadLogs()">Download Logs</button>
+        </div>
+    </div>
+
+    <div id="main-view">
+        <div id="tools-overlay">
+            <button class="danger" onclick="spawnStain()" style="background:transparent; border:1px solid #ef4444;">+
+                Add Dirt</button>
+            <span style="align-self:center; font-size:0.8rem; color:#aaa;">Drag to move</span>
+        </div>
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="sidebar sidebar-right" id="sidebar-right">
+        <div class="resize-handle resize-right" onmousedown="startResize(event, 'right')"></div>
+        <div>
+            <div class="section-header">Live Telemetry</div>
+            <div class="metric-row"><span>State</span> <span id="state" class="metric-val">IDLE</span></div>
+            <div class="metric-row"><span>Pose X</span> <span id="poseX" class="metric-val">0.0</span></div>
+            <div class="metric-row"><span>Pose Y</span> <span id="poseY" class="metric-val">0.0</span></div>
+            <div class="metric-row"><span>Heading</span> <span id="angle" class="metric-val">0°</span></div>
+        </div>
+
+        <div>
+            <div class="section-header">Mapping Data</div>
+            <div class="metric-row"><span>Points</span> <span id="pts-count" class="metric-val">0</span></div>
+            <div class="metric-row"><span>Detected</span> <span id="stain-count" class="metric-val"
+                    style="color:#ef4444">0</span></div>
+            <button onclick="clearDetections()" style="margin-top:8px; font-size:0.8rem;">Clear Detections</button>
+        </div>
+
+        <div class="control-group">
+            <div class="section-header">AI Console (TFLite)</div>
+            <div id="ai-log-area" class="log-area ai"></div>
+        </div>
+
+        <div style="flex-grow:1; overflow-y:auto; min-height:100px;">
+            <div class="section-header">Detections List</div>
+            <div id="stain-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket("ws://" + window.location.host + "/ws");
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        const viewDiv = document.getElementById("main-view");
+
+        // Assets
+        const imgPanel = new Image(); imgPanel.src = "assets/solar_panel.jpg";
+        const imgDirt = new Image(); imgDirt.src = "assets/dirt.png";
+        let assetsLoaded = 0;
+        imgPanel.onload = () => { assetsLoaded++; draw(); };
+        imgPanel.onerror = () => { console.warn("Panel tex missing"); draw(); };
+        imgDirt.onload = () => { assetsLoaded++; draw(); };
+        imgDirt.onerror = () => { console.warn("Dirt tex missing"); draw(); };
+
+        // State
+        let simMode = false;
+        let robot = { x: 50, y: 50, angle: 0 };
+        let view = { x: 50, y: 600, scale: 2.5 };
+        let dragging = false, lastMouse = { x: 0, y: 0 };
+        let mapPts = [], path = [], plan = [], stains = [], foundStains = [];
+        let draggedStain = null;
+
+        // Init
+        function resize() {
+            canvas.width = viewDiv.clientWidth;
+            canvas.height = viewDiv.clientHeight;
+            draw();
+        }
+        window.onresize = resize;
+        setTimeout(resize, 100);
+
+        // Sidebar Resize
+        function startResize(e, side) {
+            e.preventDefault();
+            const sidebar = document.getElementById(side === 'left' ? 'sidebar-left' : 'sidebar-right');
+            const startX = e.clientX;
+            const startWidth = sidebar.offsetWidth;
+
+            function doDrag(ev) {
+                const diff = side === 'left' ? (ev.clientX - startX) : (startX - ev.clientX);
+                const newW = Math.max(200, Math.min(600, startWidth + diff));
+                sidebar.style.width = newW + 'px';
+                resize();
+            }
+
+            function stopDrag() {
+                document.removeEventListener('mousemove', doDrag);
+                document.removeEventListener('mouseup', stopDrag);
+            }
+
+            document.addEventListener('mousemove', doDrag);
+            document.addEventListener('mouseup', stopDrag);
+        }
+
+        // Sim Inputs
+        viewDiv.addEventListener("mousedown", e => {
+            const m = screenToWorld(e.offsetX, e.offsetY);
+            lastMouse = { x: e.offsetX, y: e.offsetY };
+
+            if (simMode) {
+                for (let s of stains) {
+                    const dx = m.x - s.x;
+                    const dy = m.y - s.y;
+                    if (Math.hypot(dx, dy) < 15) {
+                        draggedStain = s;
+                        dragging = true;
+                        return;
+                    }
+                }
+            }
+            dragging = true;
+        });
+
+        viewDiv.addEventListener("mousemove", e => {
+            if (!dragging) return;
+            const dx = e.offsetX - lastMouse.x;
+            const dy = e.offsetY - lastMouse.y;
+            lastMouse = { x: e.offsetX, y: e.offsetY };
+
+            if (draggedStain) {
+                const m = screenToWorld(e.offsetX, e.offsetY);
+                draggedStain.x = m.x; draggedStain.y = m.y;
+                draw();
+            } else {
+                view.x += dx; view.y += dy;
+                draw();
+            }
+        });
+
+        viewDiv.addEventListener("mouseup", () => {
+            dragging = false;
+            if (draggedStain) { draggedStain = null; sendStains(); }
+        });
+
+        viewDiv.addEventListener("wheel", e => {
+            e.preventDefault();
+            const zs = 0.1;
+            const delta = e.deltaY > 0 ? (1 - zs) : (1 + zs);
+            const m = screenToWorld(e.offsetX, e.offsetY);
+            view.scale *= delta;
+            view.x = e.offsetX - m.x * view.scale;
+            view.y = e.offsetY + m.y * view.scale;
+            draw();
+        });
+
+        // WS Implementation
+        ws.onopen = () => {
+            document.getElementById("connection-status").innerText = "Online";
+            document.getElementById("connection-status").classList.add("online");
+            log("Connected to Robot Brain");
+        };
+
+        ws.onmessage = (evt) => {
+            try {
+                const msg = JSON.parse(evt.data);
+                if (msg.type === "pose") {
+                    robot.x = msg.x; robot.y = msg.y; robot.angle = msg.angle || 0;
+                    document.getElementById("poseX").innerText = msg.x.toFixed(1);
+                    document.getElementById("poseY").innerText = msg.y.toFixed(1);
+                    document.getElementById("angle").innerText = (msg.angle * 180 / Math.PI).toFixed(1) + "°";
+                    path.push({ x: msg.x, y: msg.y });
+                    if (path.length > 5000) path.shift();
+                    draw();
+                }
+                else if (msg.type === "map_point") {
+                    mapPts.push(msg);
+                    document.getElementById("pts-count").innerText = mapPts.length;
+                    draw();
+                }
+                else if (msg.type === "planned_path") {
+                    plan = msg.path;
+                    log(`Received path with ${plan.length} points`);
+                    draw();
+                }
+                else if (msg.type === "stain_found") {
+                    foundStains.push(msg);
+                    document.getElementById("stain-count").innerText = foundStains.length;
+                    const div = document.createElement("div");
+                    div.className = "metric-row";
+                    div.innerHTML = `<span>Detection</span> <span class="metric-val">${msg.x.toFixed(0)}, ${msg.y.toFixed(0)}</span>`;
+                    document.getElementById("stain-list").prepend(div);
+                    log(`Anomaly detected at ${msg.x.toFixed(1)}, ${msg.y.toFixed(1)}`);
+                    if (msg.ai_log) logAI(msg.ai_log);
+                    draw();
+                }
+                else if (msg.type === "status") {
+                    document.getElementById("state").innerText = msg.status;
+                    if (msg.msg) log(msg.msg);
+                }
+            } catch (e) { }
+        };
+
+        function wsSend(cmd, payload = {}) {
+            ws.send(JSON.stringify({ ...payload, cmd }));
+        }
+
+        function toggleSim() {
+            simMode = document.getElementById("simToggle").checked;
+            document.getElementById("sim-controls").style.display = simMode ? "flex" : "none";
+            document.getElementById("tools-overlay").classList.toggle("visible", simMode);
+            document.getElementById("real-buttons").style.display = simMode ? "none" : "flex";
+            document.getElementById("btnMap").innerText = simMode ? "Start Simulation" : "Start Mapping";
+            document.getElementById("btnEmerg").style.display = simMode ? "none" : "block";
+
+            if (simMode) {
+                updateConfig();
+            } else {
+                ctx.fillStyle = "#000";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        function updateConfig() {
+            if (!simMode) return;
+            const w = parseFloat(document.getElementById("simW").value);
+            const h = parseFloat(document.getElementById("simH").value);
+            const sz = parseFloat(document.getElementById("simSize").value);
+            wsSend("set_sim_config", { w, h, size: sz, overlap: 0.5 });
+            draw();
+        }
+
+        function resetSim() {
+            if (!simMode) return;
+            wsSend("reset_sim");
+            // stains = []; // User might keep stains
+            mapPts = []; path = []; plan = []; foundStains = [];
+            sendStains();
+            draw();
+            log("Simulation Reset");
+        }
+
+        function actionMapping() {
+            if (simMode) updateConfig();
+            wsSend("start_mapping");
+        }
+
+        function spawnStain() {
+            const cx = (canvas.width / 2 - view.x) / view.scale;
+            const cy = (view.y - canvas.height / 2) / view.scale;
+            stains.push({ x: cx, y: cy, id: Date.now() });
+            sendStains();
+            draw();
+            log("Spawned debris");
+        }
+
+        function sendStains() {
+            wsSend("update_sim_stains", { stains: stains.map(s => ({ x: s.x, y: s.y })) });
+        }
+
+        function clearDetections() {
+            foundStains = [];
+            document.getElementById("stain-count").innerText = "0";
+            document.getElementById("stain-list").innerHTML = "";
+            // Optional: tell backend to clear detections? 
+            // Currently backend clears on RUN. 
+            log("Detections Cleared");
+        }
+
+        function togglePause() {
+            wsSend("toggle_pause");
+        }
+
+        function setSpeed(v) {
+            document.getElementById("speedVal").innerText = v + "x";
+            wsSend("set_speed", { speed: v });
+        }
+
+        function downloadLogs() {
+            const txt = document.getElementById("log-area").innerText + "\n\n=== AI LOGS ===\n" + document.getElementById("ai-log-area").innerText;
+            const blob = new Blob([txt], { type: "text/plain" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "robot_logs.txt";
+            a.click();
+        }
+
+        function log(txt) {
+            const d = document.createElement("div");
+            d.style.marginBottom = "4px";
+            d.innerHTML = `<span style="opacity:0.5">[${new Date().toLocaleTimeString()}]</span> ${txt}`;
+            document.getElementById("log-area").prepend(d);
+        }
+
+        function logAI(txt) {
+            const d = document.createElement("div");
+            d.style.marginBottom = "4px";
+            d.innerText = "> " + txt;
+            document.getElementById("ai-log-area").prepend(d);
+        }
+
+        // Render
+        const worldToScreen = (wx, wy) => ({
+            x: wx * view.scale + view.x,
+            y: view.y - wy * view.scale
+        });
+        const screenToWorld = (sx, sy) => ({
+            x: (sx - view.x) / view.scale,
+            y: (view.y - sy) / view.scale
+        });
+
+        function draw() {
+            // BG
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const w = parseFloat(document.getElementById("simW").value) || 200;
+            const h = parseFloat(document.getElementById("simH").value) || 150;
+
+            // Draw Panel Texture (tiled)
+            if (assetsLoaded >= 1 && simMode) {
+                ctx.save();
+                const pat = ctx.createPattern(imgPanel, "repeat");
+
+                const sTL = worldToScreen(0, h);
+                const sBR = worldToScreen(w, 0);
+                const panelW = sBR.x - sTL.x;
+                const panelH = sBR.y - sTL.y;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(sTL.x, sTL.y, panelW, panelH);
+                ctx.clip();
+
+                const pMat = new DOMMatrix();
+                pMat.translateSelf(view.x, view.y);
+                pMat.scaleSelf(view.scale / 10, -view.scale / 10);
+                pat.setTransform(pMat);
+                ctx.fillStyle = pat;
+                ctx.fill();
+
+                ctx.strokeStyle = "#3b82f6";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+                ctx.restore();
+            } else if (simMode) {
+                const tl = worldToScreen(0, h);
+                const br = worldToScreen(w, 0);
+                ctx.strokeStyle = "#444";
+                ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+            }
+
+            // Stains
+            for (let s of stains) {
+                const scr = worldToScreen(s.x, s.y);
+                if (simMode && assetsLoaded >= 2) {
+                    const sz = 30 * view.scale;
+                    ctx.drawImage(imgDirt, scr.x - sz / 2, scr.y - sz / 2, sz, sz);
+                } else {
+                    ctx.fillStyle = "#888";
+                    ctx.beginPath();
+                    ctx.arc(scr.x, scr.y, 10 * view.scale, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Path
+            if (document.getElementById("pathToggle").checked && path.length > 0) {
+                ctx.beginPath();
+                ctx.strokeStyle = "#10b981";
+                ctx.lineWidth = 2;
+                const start = worldToScreen(path[0].x, path[0].y);
+                ctx.moveTo(start.x, start.y);
+                for (let p of path) {
+                    const s = worldToScreen(p.x, p.y);
+                    ctx.lineTo(s.x, s.y);
+                }
+                ctx.stroke();
+            }
+
+            // Planned Path
+            if (plan.length > 0) {
+                ctx.beginPath();
+                ctx.strokeStyle = "#fbbf24";
+                ctx.setLineDash([10, 5]);
+                ctx.lineWidth = 2;
+                const start = worldToScreen(plan[0].x, plan[0].y);
+                ctx.moveTo(start.x, start.y);
+                for (let p of plan) {
+                    const s = worldToScreen(p.x, p.y);
+                    ctx.lineTo(s.x, s.y);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Map Pts
+            ctx.fillStyle = "rgba(59, 130, 246, 0.5)";
+            for (let p of mapPts) {
+                const s = worldToScreen(p.x, p.y);
+                ctx.fillRect(s.x, s.y, 4 * view.scale, 4 * view.scale);
+            }
+
+            // Robot
+            ctx.save();
+            const rPos = worldToScreen(robot.x, robot.y);
+            ctx.translate(rPos.x, rPos.y);
+
+            ctx.rotate(robot.angle);
+
+            const rSz = 28; // cm
+            const sz = rSz * view.scale;
+
+            // Body
+            ctx.fillStyle = "#e4e4e7";
+            ctx.shadowColor = "rgba(0,0,0,0.5)";
+            ctx.shadowBlur = 10;
+            ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
+
+            // Front indicator (Red strip at "Front" - Top Local)
+            ctx.fillStyle = "#ef4444";
+            ctx.fillRect(-2, -sz / 2, 4, sz / 2);
+
+            ctx.restore();
+
+            // Detections
+            ctx.strokeStyle = "#ef4444";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 0;
+            for (let s of foundStains) {
+                const scr = worldToScreen(s.x, s.y);
+                ctx.beginPath();
+                ctx.arc(scr.x, scr.y, 15 * view.scale, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+    </script>
+</body>
+
+</html>
