@@ -35,7 +35,7 @@ This repository contains the software stack for our 6VWO graduation masterproof.
 
 2.  **Run the Server**:
     ```bash
-    python Software/src/Robot/Web/server.py
+    python Software/src/Simulation/server.py
     ```
 
 3.  **Access the UI**:
