@@ -6,7 +6,6 @@ import os
 import time
 import json
 
-# Setup Logging
 logger = logging.getLogger("RobotSim")
 logger.setLevel(logging.INFO)
 
@@ -61,8 +60,6 @@ class RobotSimulation:
 
             delegates = []
             try:
-                # Attempt GPU Delegate (Windows/Linux support varies)
-                # On simple setup, this might fail or do nothing, but worth a try if requested
                 pass 
             except: pass
 
@@ -80,14 +77,12 @@ class RobotSimulation:
     def load_assets(self):
         assets_dir = os.path.join(os.path.dirname(__file__), "static/assets")
         os.makedirs(assets_dir, exist_ok=True)
-        
-        # 1. Solar Panel Texture
+
         panel_path = os.path.join(assets_dir, "solar_panel.jpg")
         try:
             w, h = 400, 400
-            img = Image.new("RGB", (w, h), "#0f172a") # Dark Blue
+            img = Image.new("RGB", (w, h), "#0f172a")
             draw = ImageDraw.Draw(img)
-            # Grid
             rows, cols = 4, 4
             cw, ch = w / cols, h / rows
             gap = 2
@@ -96,7 +91,6 @@ class RobotSimulation:
                     x0 = c * cw + gap; y0 = r * ch + gap
                     x1 = (c + 1) * cw - gap; y1 = (r + 1) * ch - gap
                     draw.rectangle([x0, y0, x1, y1], fill="#1e293b", outline="#334155")
-                    # Busbars
                     for i in range(1, 4):
                         bx = x0 + (x1 - x0) * i / 4
                         draw.line([bx, y0, bx, y1], fill="#94a3b8", width=1)
@@ -106,7 +100,6 @@ class RobotSimulation:
             logger.error(f"Failed Panel asset: {e}")
             self.bg_texture = Image.new("RGB", (100, 100), "#222")
 
-        # 2. Dirt Texture
         dirt_path = os.path.join(assets_dir, "dirt.png")
         try:
             sz = 100
@@ -133,13 +126,10 @@ class RobotSimulation:
         self.robot_size = 28 
         self.x = self.robot_size / 2.0 + 2.0
         self.y = self.robot_size / 2.0 + 2.0
-        self.angle = 0.0 # Facing UP
+        self.angle = 0.0
         self.mode = "IDLE"
         self.map_points = []
         self.detected_stains = []
-        # User requested Reset Position to also clear dirt? 
-        # "when i click on reset position, it doesn't remove the dirt placed on it"
-        # Yes, clear stains.
         self.stains = [] 
         self.update_world_image()
         logger.info(f"Sim Reset to ({self.x:.1f}, {self.y:.1f})")
@@ -151,8 +141,7 @@ class RobotSimulation:
     def update_world_image(self):
         if not self.bg_texture or not self.dirt_texture:
             return
-        
-        # Render world to image for "Camera"
+
         scale_px = 5 
         w_px = int(self.width * scale_px)
         h_px = int(self.height * scale_px)
@@ -190,13 +179,9 @@ class RobotSimulation:
         bottom = cy_px + view_size_px // 2
         crop = self.world_image.crop((left, top, right, bottom))
         angle_deg = math.degrees(self.angle)
-        # Camera is mounted on robot. Robot angle 0 = UP. 
-        # If Robot is UP (0), Camera Top is UP.
-        # Image is UP aligned. so rotate by -angle? 
         return crop.rotate(angle_deg) 
 
     async def wait_sim(self, duration):
-        # Wait 'duration' seconds in sim time
         t = 0
         while t < duration and self.is_running:
             if self.paused:
@@ -208,7 +193,6 @@ class RobotSimulation:
             t += step
 
     async def run_mapping(self, send_json_cb):
-        # Force stop potential previous run cleanly
         self.is_running = False
         await asyncio.sleep(0.2) 
         self.is_running = True
@@ -220,8 +204,7 @@ class RobotSimulation:
         steps = 0
         min_x, max_x, min_y, max_y = 9999, -9999, 9999, -9999
         self.start_pose = {"x": self.x, "y": self.y}
-        
-        # Reset Angle to Up
+
         self.angle = 0.0
         
         logger.info("Starting Mapping Sequence")
@@ -236,15 +219,13 @@ class RobotSimulation:
             
             margin = 5.0
             cliff_front = self.check_cliff(0, self.robot_size/2.0 + margin)
-            
-            # State Machine with Corner Nudges
+      
             if state == "FIND_WALL_UP":
                 if cliff_front:
                     logger.info("Hit Top. Turning Right.")
                     self.turn_right()
                     state = "FIND_WALL_RIGHT"
                     self.angle = math.pi/2.0
-                    # Nudge away from top wall slightly to avoid friction/stuck?
                     self.y -= 2.0 
                     await asyncio.sleep(0.2)
                 else:
@@ -256,7 +237,7 @@ class RobotSimulation:
                     self.turn_right()
                     state = "FIND_WALL_DOWN"
                     self.angle = math.pi
-                    self.x -= 2.0 # Nudge left
+                    self.x -= 2.0
                     await asyncio.sleep(0.2)
                 else: 
                     self.move_forward()
@@ -267,7 +248,7 @@ class RobotSimulation:
                     self.turn_right()
                     state = "FIND_WALL_LEFT"
                     self.angle = 3*math.pi/2.0
-                    self.y += 2.0 # Nudge Up
+                    self.y += 2.0
                     await asyncio.sleep(0.2)
                 else:
                     self.move_forward()
@@ -288,24 +269,20 @@ class RobotSimulation:
             if steps % 5 == 0:
                 await send_json_cb({"type": "pose", "x": self.x, "y": self.y, "angle": self.angle, "state": state})
 
-        # --- PLANNING ---
         self.mode = "PLANNING"
         path = self.generate_spiral_path(min_x, max_x, min_y, max_y)
         await send_json_cb({"type": "planned_path", "path": path})
         await asyncio.sleep(1.0)
-        
-        # --- SCANNING ---
+
         self.mode = "SCANNING"
         await send_json_cb({"type": "status", "status": "SCANNING", "msg": "Scanning..."})
         for pt in path:
             if not self.is_running: break
             await self.move_to(pt['x'], pt['y'], send_json_cb, detect=True)
-            
-        # --- CLEANING ---
+ 
         if self.is_running and self.detected_stains:
             await self.run_cleaning_phase(send_json_cb)
-            
-        # --- RETURN HOME ---
+
         await send_json_cb({"type": "status", "status": "RETURNING", "msg": "Going Home"})
         await self.move_to(self.start_pose['x'], self.start_pose['y'], send_json_cb, detect=False)
         self.mode = "IDLE"
@@ -368,8 +345,7 @@ class RobotSimulation:
     async def run_cleaning_phase(self, send_json_cb):
         self.mode = "CLEANING"
         await send_json_cb({"type": "status", "status": "CLEANING", "msg": "Optimizing Path..."})
-        
-        # Nearest Neighbor Sorting
+ 
         remaining = self.detected_stains[:]
         clean_path = []
         curr = {"x": self.x, "y": self.y}
@@ -387,12 +363,10 @@ class RobotSimulation:
             
             await send_json_cb({"type": "status", "status": "CLEANING", "msg": f"Cleaning {i+1}/{len(clean_path)}"})
             await self.move_to(target['x'], target['y'], send_json_cb, detect=False)
-            
-            # Wait 5 sec
+
             await send_json_cb({"type": "status", "status": "CLEANING", "msg": "Removing Stain..."})
             await self.wait_sim(5.0)
-            
-            # Remove
+ 
             self.stains = [s for s in self.stains if math.hypot(s['x']-self.x, s['y']-self.y) > 10]
             self.update_world_image()
             logger.info("Stain Cleaned")
@@ -409,41 +383,31 @@ class RobotSimulation:
             dx = tx - self.x
             dy = ty - self.y
             dist = math.hypot(dx, dy)
-            
-            # Arrival threshold
+  
             if dist < 2.0: break
-            
-            # Target Angle (0=Up/Y+)
+
             target_a = math.atan2(dx, dy)
-            
-            # Angle Difference (-PI to PI)
+  
             diff = target_a - self.angle
             while diff > math.pi: diff -= 2*math.pi
             while diff < -math.pi: diff += 2*math.pi
-            
-            # Proportional Control for Heading
-            # if diff is large, turn fast. If small, turn slow.
-            # Max turn speed ~0.3 rad/tick
+
             turn_speed = 0.15 * diff 
-            # Clamp
+
             turn_speed = max(-0.4, min(0.4, turn_speed))
             
             self.angle += turn_speed
-            
-            # Move forward if aligned enough
-            if abs(diff) < 0.5: # ~30 degrees
-                # Slow down as we get closer (Simple P-Control for speed too?)
-                # Constant speed is fine but ensure we don't overshoot.
+ 
+            if abs(diff) < 0.5:
+
                 speed_factor = 1.0
                 if dist < 5.0: speed_factor = 0.5
                 
                 mv = min(dist, self.step_size * speed_factor)
                 
-                # Apply movement
                 self.x += mv * math.sin(self.angle)
                 self.y += mv * math.cos(self.angle)
-            
-            # AI Inference
+ 
             if detect and ctr % 5 == 0:
                 self.check_stains_ai(send_json_cb)
                 
@@ -463,7 +427,6 @@ class RobotSimulation:
         self.angle -= math.pi / 2.0
 
     def check_cliff(self, lx, ly):
-        # Transform local to world. 0=Up(+Y)
         wx = self.x + lx * math.cos(self.angle) + ly * math.sin(self.angle)
         wy = self.y - lx * math.sin(self.angle) + ly * math.cos(self.angle)
         return wx < 0 or wx > self.width or wy < 0 or wy > self.height

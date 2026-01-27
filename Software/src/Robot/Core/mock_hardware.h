@@ -39,18 +39,14 @@ public:
     return inst;
   }
 
-  // Config
   int panelWidthCm = 200;
   int panelHeightCm = 150;
-  int robotSizeCm = 30; // Diameter roughly or length
+  int robotSizeCm = 30;
   double stepsPerCm = 56.4;
 
-  // State
-  // User wants spawn at Bottom Left (touching edges)
-  // Edges are at 0. So robotSize/2 + margin is correct.
   std::atomic<double> posX{16.0};
   std::atomic<double> posY{16.0};
-  std::atomic<double> angle{0.0}; // 0 = UP (Y+)
+  std::atomic<double> angle{0.0};
 
   // Pin State
   std::map<int, int> pinStates;
