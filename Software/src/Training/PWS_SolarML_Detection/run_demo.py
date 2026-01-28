@@ -10,7 +10,7 @@ tf.get_logger().setLevel('ERROR')  # suppress TF warnings
 
 # simple single image score
 MLREF_DIR = os.path.abspath(
-    os.path.join(BASE_DIR, "../../../../MLReferences")
+    os.path.join(BASE_DIR, "MLReferences")
 )
 img = os.path.join(MLREF_DIR, "Dirty", "Snow-Covered", "Snow (40).jpg") # frame path
 score = get_dirt_score(img)
