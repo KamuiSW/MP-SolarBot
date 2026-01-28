@@ -10,8 +10,12 @@ from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
 
+
 # ---- USER CONFIG ----
-DATASET_ROOT = "../MLReferences" #Need to change file path
+# ---- USER CONFIG ----
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATASET_ROOT = os.path.join(BASE_DIR, "MLReferences")
+
 CLEAN_DIR = os.path.join(DATASET_ROOT, "Clean")
 DIRTY_DIR = os.path.join(DATASET_ROOT, "Dirty")
 IMG_SIZE = (224, 224)

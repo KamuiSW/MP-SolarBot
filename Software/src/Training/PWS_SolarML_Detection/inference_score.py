@@ -4,13 +4,18 @@ import json
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from skimage.util import view_as_windows
 import cv2
-import os
 from model_siamese import build_encoder
 from panel_mask import get_panel_mask
+import os
+import sys
 
-ENCODER_PATH = "./models/encoder.h5"
-CLEAN_REF_NPY = "./models/clean_reference.npy"
-CALIB_JSON = "./models/calibration.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+MODEL_DIR = os.path.join(BASE_DIR, "models")
+
+ENCODER_PATH = os.path.join(MODEL_DIR, "encoder.h5")
+CLEAN_REF_NPY = os.path.join(MODEL_DIR, "clean_reference.npy")
+CALIB_JSON = os.path.join(MODEL_DIR, "calibration.json")
 IMG_SIZE = (224,224)
 
 print("Rebuilding encoder...")

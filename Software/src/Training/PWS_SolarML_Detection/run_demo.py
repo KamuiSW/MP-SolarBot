@@ -1,15 +1,18 @@
 # run_demo.py
 import os
 from inference_score import get_dirt_score, get_tile_scores, classify_dirt
-import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # suppresses most TF logs
+import os
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 import tensorflow as tf
 tf.get_logger().setLevel('ERROR')  # suppress TF warnings
 
 # simple single image score
-my_base_directory = "../MLReferences"
-img = f"{my_base_directory}/Dirty/Snow-Covered/Snow (40).jpg"  # frame path
+MLREF_DIR = os.path.abspath(
+    os.path.join(BASE_DIR, "../../../../MLReferences")
+)
+img = os.path.join(MLREF_DIR, "Dirty", "Snow-Covered", "Snow (40).jpg") # frame path
 score = get_dirt_score(img)
 print("Overall dirt score for image:", score)
 print("Category:", classify_dirt(score))
