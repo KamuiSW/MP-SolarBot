@@ -45,8 +45,8 @@ def cosine_similarity(a, b):
 
 def main():
 
-    img1 = load_image("MLReferences/Dirty/Snow-Covered/Snow (40).jpg")
-    img2 = load_image("MLReferences/Dirty/Snow-Covered/Snow (39).JPG")
+    img1 = load_image("MLReferences/Dirty/Snow-Covered/Snow (46).jpg")
+    img2 = load_image("MLReferences/Dirty/Snow-Covered/Snow (30).JPG")
 
     # Pixel comparison timing
     start = time.perf_counter()
