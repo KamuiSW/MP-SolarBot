@@ -285,8 +285,31 @@ class RobotSimulation:
 
         await send_json_cb({"type": "status", "status": "RETURNING", "msg": "Going Home"})
         await self.move_to(self.start_pose['x'], self.start_pose['y'], send_json_cb, detect=False)
+        
+        # Enforce Homing Orientation (Up/0 degrees)
+        logger.info("Aligning to Home Orientation (0 deg)")
+        target_angle = 0.0
+        
+        while True:
+            self.normalize_angle()
+            diff = target_angle - self.angle
+            while diff > math.pi: diff -= 2*math.pi
+            while diff < -math.pi: diff += 2*math.pi
+            
+            if abs(diff) < 0.05: break
+            
+            # Turn in the shortest direction
+            turn = 0.15 if diff > 0 else -0.15
+            self.angle += turn
+            
+            await asyncio.sleep(0.05)
+            await send_json_cb({"type": "pose", "x": self.x, "y": self.y, "angle": self.angle})
+            
+        self.angle = 0.0
+        
         self.mode = "IDLE"
         await send_json_cb({"type": "status", "status": "IDLE", "msg": "Done"})
+        await send_json_cb({"type": "pose", "x": self.x, "y": self.y, "angle": self.angle})
 
     def generate_spiral_path(self, min_x, max_x, min_y, max_y):
         path = []
@@ -365,10 +388,20 @@ class RobotSimulation:
             await self.move_to(target['x'], target['y'], send_json_cb, detect=False)
 
             await send_json_cb({"type": "status", "status": "CLEANING", "msg": "Removing Stain..."})
-            await self.wait_sim(5.0)
+            await self.wait_sim(2.0)
  
+            # Remove from simulation state
             self.stains = [s for s in self.stains if math.hypot(s['x']-self.x, s['y']-self.y) > 10]
+            self.detected_stains = [s for s in self.detected_stains if math.hypot(s['x']-self.x, s['y']-self.y) > 10]
+            
             self.update_world_image()
+            
+            # Broadcast removal to UI
+            await send_json_cb({
+                "type": "stain_removed",
+                "x": target['x'],
+                "y": target['y']
+            })
             logger.info("Stain Cleaned")
 
     async def move_to(self, tx, ty, send_json_cb, detect=False):
@@ -379,6 +412,7 @@ class RobotSimulation:
                 await asyncio.sleep(0.1)
                 continue
             ctr += 1
+            mv = 0.0
             
             dx = tx - self.x
             dy = ty - self.y
@@ -414,17 +448,39 @@ class RobotSimulation:
             await asyncio.sleep(0.02 / max(0.1, self.sim_speed))
             
             if ctr % 10 == 0:
+                # Math broadcasting
+                vl, vr = 0, 0
+                if dist > 0.1:
+                    vl = (mv / 0.1) - (self.robot_size/2 * turn_speed) # Fake wheel velocities for display
+                    vr = (mv / 0.1) + (self.robot_size/2 * turn_speed)
+                
+                math_data = {
+                    "type": "math_update",
+                    "v": mv / 0.02, # speed cm/s
+                    "omega": turn_speed / 0.02, # rad/s
+                    "x": self.x,
+                    "y": self.y,
+                    "theta": self.angle
+                }
+                await send_json_cb(math_data)
+                
                 await send_json_cb({"type": "pose", "x": self.x, "y": self.y, "angle": self.angle})
 
     def move_forward(self):
         self.x += self.step_size * math.sin(self.angle)
         self.y += self.step_size * math.cos(self.angle)
 
+    def normalize_angle(self):
+        while self.angle > math.pi: self.angle -= 2*math.pi
+        while self.angle < -math.pi: self.angle += 2*math.pi
+
     def turn_right(self):
         self.angle += math.pi / 2.0
+        self.normalize_angle()
     
     def turn_left(self):
         self.angle -= math.pi / 2.0
+        self.normalize_angle()
 
     def check_cliff(self, lx, ly):
         wx = self.x + lx * math.cos(self.angle) + ly * math.sin(self.angle)

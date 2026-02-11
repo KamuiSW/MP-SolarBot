@@ -282,6 +282,65 @@
             font-family: 'JetBrains Mono', monospace;
             color: var(--text-muted);
         }
+
+        /* Math Window */
+        .math-window {
+            position: absolute;
+            bottom: 20px;
+            left: 320px;
+            width: 300px;
+            background: rgba(24, 24, 27, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            z-index: 50;
+            color: #fff;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+            font-family: 'Outfit', sans-serif;
+            display: none;
+            /* Toggled */
+        }
+
+        .math-header {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--primary);
+        }
+
+        .math-content {
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+
+        .formula-box {
+            background: #000;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            margin: 8px 0;
+            font-family: 'JetBrains Mono', monospace;
+            color: #fbbf24;
+            font-size: 0.75rem;
+        }
+
+        .var-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #aaa;
+            border-bottom: 1px solid #222;
+            padding: 4px 0;
+        }
+
+        .var-val {
+            color: #fff;
+            font-family: 'JetBrains Mono', monospace;
+        }
     </style>
 </head>
 
@@ -302,6 +361,9 @@
                     <div class="switch-track"></div>
                 </label>
             </div>
+        </div>
+
+        <div id="sim-controls" style="display:none;" class="control-group">
             <div class="toggle-switch">
                 <span>Viz Path</span>
                 <label>
@@ -309,10 +371,8 @@
                     <div class="switch-track"></div>
                 </label>
             </div>
-        </div>
 
-        <div id="sim-controls" style="display:none;" class="control-group">
-            <div class="section-header">Virtual Environment</div>
+            <div class="section-header" style="margin-top:12px;">Virtual Environment</div>
             <input type="number" id="simW" placeholder="Width (cm)" value="200" onchange="updateConfig()">
             <input type="number" id="simH" placeholder="Height (cm)" value="150" onchange="updateConfig()">
             <input type="number" id="simSize" placeholder="Robot (cm)" value="28" onchange="updateConfig()">
@@ -355,6 +415,9 @@
                 Add Dirt</button>
             <span style="align-self:center; font-size:0.8rem; color:#aaa;">Drag to move</span>
         </div>
+
+
+
         <canvas id="canvas"></canvas>
     </div>
 
@@ -374,6 +437,13 @@
             <div class="metric-row"><span>Detected</span> <span id="stain-count" class="metric-val"
                     style="color:#ef4444">0</span></div>
             <button onclick="clearDetections()" style="margin-top:8px; font-size:0.8rem;">Clear Detections</button>
+        </div>
+
+        <div class="control-group" id="math-panel" style="display:none;">
+            <div class="section-header">Math & Physics</div>
+            <div id="math-content" class="math-content">
+                <div style="color:#666; font-style:italic;">Waiting for robot data...</div>
+            </div>
         </div>
 
         <div class="control-group">
@@ -536,13 +606,23 @@
                 else if (msg.type === "status") {
                     document.getElementById("state").innerText = msg.status;
                     if (msg.msg) log(msg.msg);
+                    currentStatus = msg.status;
+                    updateMathDisplay(msg.status);
+                }
+                else if (msg.type === "stain_removed") {
+                    // Remove from list
+                    foundStains = foundStains.filter(s => Math.hypot(s.x - msg.x, s.y - msg.y) > 1);
+                    document.getElementById("stain-count").innerText = foundStains.length;
+
+                    // Remove from visual stains if sim
+                    stains = stains.filter(s => Math.hypot(s.x - msg.x, s.y - msg.y) > 1);
+                    draw();
                 }
             } catch (e) { }
         };
 
-        function wsSend(cmd, payload = {}) {
-            ws.send(JSON.stringify({ ...payload, cmd }));
-        }
+        let currentStatus = "IDLE";
+        let latestMath = null;
 
         function toggleSim() {
             simMode = document.getElementById("simToggle").checked;
@@ -552,12 +632,59 @@
             document.getElementById("btnMap").innerText = simMode ? "Start Simulation" : "Start Mapping";
             document.getElementById("btnEmerg").style.display = simMode ? "none" : "block";
 
+            // Show/Hide Math Panel based on Sim Mode
+            document.getElementById("math-panel").style.display = simMode ? "flex" : "none";
+
             if (simMode) {
                 updateConfig();
             } else {
                 ctx.fillStyle = "#000";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
+        }
+
+        function updateMathDisplay(status) {
+            // Persist display on PAUSE
+            if (status === "PAUSED") return;
+
+            const div = document.getElementById("math-content");
+            if (status === "CLEANING") {
+                div.innerHTML = `
+                    <div><strong>Algorithm:</strong> Greedy Nearest Neighbor</div>
+                    <div class="formula-box">min_dist = &radic;((x_i - x)^2 + (y_i - y)^2)</div>
+                    <div>Targeting closest detected stain.</div>
+                    <div id="math-vals"></div>
+                `;
+            } else if (status === "MAPPING" || status === "SCANNING" || status === "RETURNING") {
+                div.innerHTML = `
+                    <div><strong>Kinematics:</strong> Differential Drive</div>
+                    <div class="formula-box">
+                        x' = x + v &middot; cos(&theta;)<br>
+                        y' = y + v &middot; sin(&theta;)<br>
+                        &theta;' = &theta; + &omega;
+                    </div>
+                    <div id="math-vals"></div>
+                `;
+            } else if (status === "IDLE") {
+                div.innerHTML = `<div style="color:#666;">System Idle. No active calculations.</div>`;
+            }
+            // If PAUSED, do nothing (keep previous state)
+
+            if (latestMath) updateMathValues();
+        }
+
+        function updateMathValues() {
+            const div = document.getElementById("math-vals");
+            if (!div || !latestMath) return;
+            div.innerHTML = `
+                <div class="var-row"><span>Velocity (v)</span> <span class="var-val">${latestMath.v.toFixed(1)} cm/s</span></div>
+                <div class="var-row"><span>Ang. Vel (&omega;)</span> <span class="var-val">${latestMath.omega.toFixed(2)} rad/s</span></div>
+                <div class="var-row"><span>Theta (&theta;)</span> <span class="var-val">${latestMath.theta.toFixed(2)} rad</span></div>
+            `;
+        }
+
+        function wsSend(cmd, payload = {}) {
+            ws.send(JSON.stringify({ ...payload, cmd }));
         }
 
         function updateConfig() {
