@@ -54,7 +54,7 @@ class RobotSimulation:
     def load_model(self):
         try:
             base = os.path.dirname(__file__)
-            model_path = os.path.join(base, "../../Training/PWS_SolarML_Detection/models/encoder.tflite")
+            model_path = os.path.join(base, "encoder.tflite")
             if not os.path.exists(model_path):
                  model_path = "encoder.tflite"
 
