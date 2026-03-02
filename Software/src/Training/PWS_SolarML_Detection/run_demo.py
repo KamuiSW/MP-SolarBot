@@ -27,6 +27,7 @@ print("Sample tile scores (first 10):", scores[:10])
 print("Heatmap saved to demo_heatmap.jpg")
 
 
+
 # I tested a couple of images, clean vs dirty and set the following thresholds:
 # score < 10               CLEAN
 # 10 <= score < 40         LIGHT DIRT
