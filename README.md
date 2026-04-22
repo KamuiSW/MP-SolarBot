@@ -23,7 +23,6 @@ This repository contains the software stack for our 6VWO graduation masterproof.
 *   **Features**:
     *   Real-time robot status and control.
     *   **Simulation Mode**: A full pure-Python simulation of the robot's kinematics and sensor logic.
-    *   Interactive Map: Pan, Zoom, and Live Grid.
     *   Virtual Stain Spawning: Drag-and-drop simulated dirt for testing detection logic.
 
 ## Getting Started (Simulation)
