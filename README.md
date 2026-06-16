@@ -1,51 +1,44 @@
 # Solar Panel Cleaning Robot System
 
-This repository contains the software stack for our 6VWO graduation masterproof. The system is divided into a C++ Firmware Core (for the physical robot hardware) and a Python/Web Interface (for control, simulation, and visualization).
+This repository contains the software stack for our 6VWO graduation masterproof. The system is divided into a C++ Firmware (for the physical robot hardware) and a web interface (for simulation).
 
 ## System Architecture
 
-### 1. Firmware Core (`Software/src/Robot/Core`)
-*   **Language**: C++
-*   **Hardware**: Raspberry Pi (wiringPi)
-*   **Functionality**:
-    *   Motor Control (Stepper Drivers)
-    *   Sensor Fusion (Ultrasonic / Cliff Detection)
-    *   Mapping Algorithm (Edge detection, Perimeter tracing)
-    *   Navigation (Grid-based coverage path planning)
-*   **Compilation**:
-    ```bash
-    g++ main.cpp mapping.cpp navigation.cpp executor.cpp stains.cpp stain_planner.cpp -o robot_core -lwiringPi -std=c++17
+### 1. Firmware
+Language: C++ <br>
+Hardware: Raspberry Pi <br><br>
+Functions:<br>
+Motor Control <br>
+Sensor edge detection<br>
+Mapping algorithm<br>
+Navigation<br><br>
+Compilation:<br>
+    ```g++ main.cpp mapping.cpp navigation.cpp executor.cpp stains.cpp stain_planner.cpp -o robot_core -lwiringPi -std=c++17
     ```
 
-### 2. Web Interface & Simulation (`Software/src/Robot/Web`)
-*   **Backend**: Python (FastAPI, WebSockets)
-*   **Frontend**: HTML5, Vanilla JS, Canvas API
-*   **Features**:
-    *   Real-time robot status and control.
-    *   **Simulation Mode**: A full pure-Python simulation of the robot's kinematics and sensor logic.
-    *   Virtual Stain Spawning: Drag-and-drop simulated dirt for testing detection logic.
+### 2. Web interface and simulation
+Backend: Python<br>
+Frontend: HTML5<br><br>
+Features:<br>
+robot status and control.<br>
+Simulation mode: A python simulation of the robot's kinematics and sensor logic.<br>
 
-## Getting Started (Simulation)
+## Simulation
 
-1.  **Install Dependencies**:
+1.  Install dependencies:
     ```bash
     pip install fastapi uvicorn websockets
     ```
 
-2.  **Run the Server**:
+2.  Run the server:
     ```bash
     python Software\src\Simulation\server.py
     ```
 
-3.  **Access the UI**:
+3.  Access the UI:
     Open `http://localhost:8000` in your web browser.
 
-4.  **Simulate**:
-    *   Toggle **"Sim Mode"** to ON.
-    *   Click **"Start Mapping (Sim)"**.
-    *   Use the **"Spawn Dirt"** button to interact with the environment.
+4.  Simulate:
+Toggle "Sim Mode" to ON.<br>
+Click "Start mapping".<br>
 
-## Deployment (Real Hardware)
-
-1.  Compile the C++ core on the Raspberry Pi using the command above.
-2.  Run the Python server. It will automatically detect and manage the `robot_core` binary for physical operations if not in Sim Mode.
