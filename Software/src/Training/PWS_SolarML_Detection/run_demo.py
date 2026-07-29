@@ -12,9 +12,9 @@ tf.get_logger().setLevel('ERROR')  # suppress TF warnings
 MLREF_DIR = os.path.abspath(
     os.path.join(BASE_DIR, "MLReferences")
 )
-# img = os.path.join(MLREF_DIR, "Dirty", "Snow-Covered", "Snow (40).jpg") # frame path
+img = os.path.join(MLREF_DIR, "Dirty", "Snow-Covered", "Snow (65).jpg") # frame path
 # img = os.path.join(MLREF_DIR, "Dirty", "Dusty", "Dust (189).jpg") # frame path
-img = os.path.join(MLREF_DIR, "Clean", "Clean (6).jpg") # frame path
+# img = os.path.join(MLREF_DIR, "Clean", "Clean (6).jpg") # frame path
 score = get_dirt_score(img)
 print("Overall dirt score for image:", score)
 print("Category:", classify_dirt(score))
