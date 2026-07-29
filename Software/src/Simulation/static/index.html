@@ -86,21 +86,6 @@
             -webkit-text-fill-color: transparent;
         }
 
-        .status-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            background: #27272a;
-            color: var(--text-muted);
-            margin-top: 8px;
-        }
-
-        .status-badge.online {
-            color: #4ade80;
-            background: rgba(74, 222, 128, 0.1);
-        }
-
         .section-header {
             font-size: 0.75rem;
             text-transform: uppercase;
@@ -169,43 +154,6 @@
             background: rgba(239, 68, 68, 0.2);
         }
 
-        .toggle-switch {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px 0;
-        }
-
-        .switch-track {
-            width: 40px;
-            height: 22px;
-            background: #27272a;
-            border-radius: 11px;
-            position: relative;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .switch-track::after {
-            content: '';
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            width: 18px;
-            height: 18px;
-            background: white;
-            border-radius: 50%;
-            transition: transform 0.2s;
-        }
-
-        input:checked+.switch-track {
-            background: var(--primary);
-        }
-
-        input:checked+.switch-track::after {
-            transform: translateX(18px);
-        }
-
         #main-view {
             flex-grow: 1;
             position: relative;
@@ -222,32 +170,6 @@
             display: block;
         }
 
-        .log-container {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            min-height: 100px;
-        }
-
-        .log-area {
-            background: #111;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 12px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
-            flex-grow: 1;
-            overflow-y: auto;
-            color: #4ade80;
-        }
-
-        .log-area.ai {
-            color: #f472b6;
-            flex-grow: 0;
-            height: 100px;
-        }
-
         #tools-overlay {
             position: absolute;
             top: 20px;
@@ -260,14 +182,9 @@
             padding: 8px;
             border-radius: 12px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-        }
-
-        #tools-overlay.visible {
             opacity: 1;
             pointer-events: auto;
+            transition: opacity 0.3s;
         }
 
         .metric-row {
@@ -283,63 +200,10 @@
             color: var(--text-muted);
         }
 
-        /* Math Window */
-        .math-window {
-            position: absolute;
-            bottom: 20px;
-            left: 320px;
-            width: 300px;
-            background: rgba(24, 24, 27, 0.9);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px;
-            z-index: 50;
-            color: #fff;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
-            font-family: 'Outfit', sans-serif;
-            display: none;
-            /* Toggled */
-        }
-
-        .math-header {
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin-bottom: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: var(--primary);
-        }
-
-        .math-content {
-            font-size: 0.8rem;
-            line-height: 1.5;
-        }
-
-        .formula-box {
-            background: #000;
-            padding: 8px;
-            border-radius: 6px;
-            border: 1px solid #333;
-            margin: 8px 0;
-            font-family: 'JetBrains Mono', monospace;
-            color: #fbbf24;
-            font-size: 0.75rem;
-        }
-
-        .var-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.75rem;
-            color: #aaa;
-            border-bottom: 1px solid #222;
-            padding: 4px 0;
-        }
-
-        .var-val {
-            color: #fff;
-            font-family: 'JetBrains Mono', monospace;
+        .detections-panel {
+            flex-grow: 1;
+            overflow-y: auto;
+            min-height: 100px;
         }
     </style>
 </head>
@@ -350,29 +214,14 @@
         <div class="resize-handle resize-left" onmousedown="startResize(event, 'left')"></div>
         <div>
             <h1>SolarBot</h1>
-            <span id="connection-status" class="status-badge">Offline</span>
         </div>
 
         <div class="control-group">
-            <div class="toggle-switch">
-                <span>Simulation Mode</span>
-                <label>
-                    <input type="checkbox" id="simToggle" hidden onchange="toggleSim()">
-                    <div class="switch-track"></div>
-                </label>
-            </div>
-        </div>
-
-        <div id="sim-controls" style="display:none;" class="control-group">
-            <div class="toggle-switch">
-                <span>Viz Path</span>
-                <label>
-                    <input type="checkbox" id="pathToggle" checked hidden onchange="draw()">
-                    <div class="switch-track"></div>
-                </label>
-            </div>
-
-            <div class="section-header" style="margin-top:12px;">Virtual Environment</div>
+            <div class="section-header">Simulation</div>
+            <label style="font-size:0.85rem; color:#aaa;">
+                <input type="checkbox" id="pathToggle" checked onchange="draw()">
+                Show path
+            </label>
             <input type="number" id="simW" placeholder="Width (cm)" value="200" onchange="updateConfig()">
             <input type="number" id="simH" placeholder="Height (cm)" value="150" onchange="updateConfig()">
             <input type="number" id="simSize" placeholder="Robot (cm)" value="28" onchange="updateConfig()">
@@ -380,7 +229,7 @@
             <div style="width:100%; height:1px; background:#333; margin:4px 0;"></div>
 
             <div style="display:flex; gap:4px;">
-                <button style="flex:1" onclick="togglePause()" id="btnPause">Pause</button>
+                <button style="flex:1" onclick="togglePause()">Pause</button>
                 <button class="danger" style="flex:1" onclick="wsSend('stop')">Stop</button>
             </div>
 
@@ -392,20 +241,8 @@
 
         <div class="control-group">
             <div class="section-header">Actions</div>
-            <button id="btnMap" class="primary" onclick="actionMapping()">Start Mapping</button>
-            <div id="real-buttons" style="display:flex; gap:8px;">
-                <button style="flex:1" onclick="wsSend('start_navigation')">Plan</button>
-                <button style="flex:1" onclick="wsSend('start_execution')">Clean</button>
-            </div>
-            <button class="danger" onclick="wsSend('stop')" id="btnEmerg">Emergency Stop</button>
-        </div>
-
-        <div class="log-container">
-            <div class="section-header">System Log</div>
-            <div id="log-area" class="log-area"></div>
-        </div>
-        <div class="control-group">
-            <button onclick="downloadLogs()">Download Logs</button>
+            <button id="btnMap" class="primary" onclick="actionMapping()">Start Simulation</button>
+            <button class="danger" onclick="wsSend('stop')">Stop</button>
         </div>
     </div>
 
@@ -415,43 +252,20 @@
                 Add Dirt</button>
             <span style="align-self:center; font-size:0.8rem; color:#aaa;">Drag to move</span>
         </div>
-
-
-
         <canvas id="canvas"></canvas>
     </div>
 
     <div class="sidebar sidebar-right" id="sidebar-right">
         <div class="resize-handle resize-right" onmousedown="startResize(event, 'right')"></div>
-        <div>
-            <div class="section-header">Live Telemetry</div>
-            <div class="metric-row"><span>State</span> <span id="state" class="metric-val">IDLE</span></div>
-            <div class="metric-row"><span>Pose X</span> <span id="poseX" class="metric-val">0.0</span></div>
-            <div class="metric-row"><span>Pose Y</span> <span id="poseY" class="metric-val">0.0</span></div>
-            <div class="metric-row"><span>Heading</span> <span id="angle" class="metric-val">0°</span></div>
-        </div>
-
-        <div>
-            <div class="section-header">Mapping Data</div>
+        <div class="control-group">
+            <div class="section-header">Detections</div>
             <div class="metric-row"><span>Points</span> <span id="pts-count" class="metric-val">0</span></div>
             <div class="metric-row"><span>Detected</span> <span id="stain-count" class="metric-val"
                     style="color:#ef4444">0</span></div>
             <button onclick="clearDetections()" style="margin-top:8px; font-size:0.8rem;">Clear Detections</button>
         </div>
 
-        <div class="control-group" id="math-panel" style="display:none;">
-            <div class="section-header">Math & Physics</div>
-            <div id="math-content" class="math-content">
-                <div style="color:#666; font-style:italic;">Waiting for robot data...</div>
-            </div>
-        </div>
-
-        <div class="control-group">
-            <div class="section-header">AI Console (TFLite)</div>
-            <div id="ai-log-area" class="log-area ai"></div>
-        </div>
-
-        <div style="flex-grow:1; overflow-y:auto; min-height:100px;">
+        <div class="detections-panel">
             <div class="section-header">Detections List</div>
             <div id="stain-list"></div>
         </div>
@@ -463,7 +277,6 @@
         const ctx = canvas.getContext("2d");
         const viewDiv = document.getElementById("main-view");
 
-        // Assets
         const imgPanel = new Image(); imgPanel.src = "assets/solar_panel.jpg";
         const imgDirt = new Image(); imgDirt.src = "assets/dirt.png";
         let assetsLoaded = 0;
@@ -472,15 +285,12 @@
         imgDirt.onload = () => { assetsLoaded++; draw(); };
         imgDirt.onerror = () => { console.warn("Dirt tex missing"); draw(); };
 
-        // State
-        let simMode = false;
         let robot = { x: 50, y: 50, angle: 0 };
         let view = { x: 50, y: 600, scale: 2.5 };
         let dragging = false, lastMouse = { x: 0, y: 0 };
         let mapPts = [], path = [], plan = [], stains = [], foundStains = [];
         let draggedStain = null;
 
-        // Init
         function resize() {
             canvas.width = viewDiv.clientWidth;
             canvas.height = viewDiv.clientHeight;
@@ -489,7 +299,6 @@
         window.onresize = resize;
         setTimeout(resize, 100);
 
-        // Sidebar Resize
         function startResize(e, side) {
             e.preventDefault();
             const sidebar = document.getElementById(side === 'left' ? 'sidebar-left' : 'sidebar-right');
@@ -512,22 +321,20 @@
             document.addEventListener('mouseup', stopDrag);
         }
 
-        // Sim Inputs
         viewDiv.addEventListener("mousedown", e => {
             const m = screenToWorld(e.offsetX, e.offsetY);
             lastMouse = { x: e.offsetX, y: e.offsetY };
 
-            if (simMode) {
-                for (let s of stains) {
-                    const dx = m.x - s.x;
-                    const dy = m.y - s.y;
-                    if (Math.hypot(dx, dy) < 15) {
-                        draggedStain = s;
-                        dragging = true;
-                        return;
-                    }
+            for (let s of stains) {
+                const dx = m.x - s.x;
+                const dy = m.y - s.y;
+                if (Math.hypot(dx, dy) < 15) {
+                    draggedStain = s;
+                    dragging = true;
+                    return;
                 }
             }
+
             dragging = true;
         });
 
@@ -539,17 +346,22 @@
 
             if (draggedStain) {
                 const m = screenToWorld(e.offsetX, e.offsetY);
-                draggedStain.x = m.x; draggedStain.y = m.y;
+                draggedStain.x = m.x;
+                draggedStain.y = m.y;
                 draw();
             } else {
-                view.x += dx; view.y += dy;
+                view.x += dx;
+                view.y += dy;
                 draw();
             }
         });
 
         viewDiv.addEventListener("mouseup", () => {
             dragging = false;
-            if (draggedStain) { draggedStain = null; sendStains(); }
+            if (draggedStain) {
+                draggedStain = null;
+                sendStains();
+            }
         });
 
         viewDiv.addEventListener("wheel", e => {
@@ -563,21 +375,17 @@
             draw();
         });
 
-        // WS Implementation
         ws.onopen = () => {
-            document.getElementById("connection-status").innerText = "Online";
-            document.getElementById("connection-status").classList.add("online");
-            log("Connected to Robot Brain");
+            updateConfig();
         };
 
         ws.onmessage = (evt) => {
             try {
                 const msg = JSON.parse(evt.data);
                 if (msg.type === "pose") {
-                    robot.x = msg.x; robot.y = msg.y; robot.angle = msg.angle || 0;
-                    document.getElementById("poseX").innerText = msg.x.toFixed(1);
-                    document.getElementById("poseY").innerText = msg.y.toFixed(1);
-                    document.getElementById("angle").innerText = (msg.angle * 180 / Math.PI).toFixed(1) + "°";
+                    robot.x = msg.x;
+                    robot.y = msg.y;
+                    robot.angle = msg.angle || 0;
                     path.push({ x: msg.x, y: msg.y });
                     if (path.length > 5000) path.shift();
                     draw();
@@ -589,7 +397,6 @@
                 }
                 else if (msg.type === "planned_path") {
                     plan = msg.path;
-                    log(`Received path with ${plan.length} points`);
                     draw();
                 }
                 else if (msg.type === "stain_found") {
@@ -599,115 +406,45 @@
                     div.className = "metric-row";
                     div.innerHTML = `<span>Detection</span> <span class="metric-val">${msg.x.toFixed(0)}, ${msg.y.toFixed(0)}</span>`;
                     document.getElementById("stain-list").prepend(div);
-                    log(`Anomaly detected at ${msg.x.toFixed(1)}, ${msg.y.toFixed(1)}`);
-                    if (msg.ai_log) logAI(msg.ai_log);
                     draw();
                 }
-                else if (msg.type === "status") {
-                    document.getElementById("state").innerText = msg.status;
-                    if (msg.msg) log(msg.msg);
-                    currentStatus = msg.status;
-                    updateMathDisplay(msg.status);
-                }
                 else if (msg.type === "stain_removed") {
-                    // Remove from list
                     foundStains = foundStains.filter(s => Math.hypot(s.x - msg.x, s.y - msg.y) > 1);
                     document.getElementById("stain-count").innerText = foundStains.length;
-
-                    // Remove from visual stains if sim
                     stains = stains.filter(s => Math.hypot(s.x - msg.x, s.y - msg.y) > 1);
                     draw();
                 }
             } catch (e) { }
         };
 
-        let currentStatus = "IDLE";
-        let latestMath = null;
-
-        function toggleSim() {
-            simMode = document.getElementById("simToggle").checked;
-            document.getElementById("sim-controls").style.display = simMode ? "flex" : "none";
-            document.getElementById("tools-overlay").classList.toggle("visible", simMode);
-            document.getElementById("real-buttons").style.display = simMode ? "none" : "flex";
-            document.getElementById("btnMap").innerText = simMode ? "Start Simulation" : "Start Mapping";
-            document.getElementById("btnEmerg").style.display = simMode ? "none" : "block";
-
-            // Show/Hide Math Panel based on Sim Mode
-            document.getElementById("math-panel").style.display = simMode ? "flex" : "none";
-
-            if (simMode) {
-                updateConfig();
-            } else {
-                ctx.fillStyle = "#000";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
-        }
-
-        function updateMathDisplay(status) {
-            // Persist display on PAUSE
-            if (status === "PAUSED") return;
-
-            const div = document.getElementById("math-content");
-            if (status === "CLEANING") {
-                div.innerHTML = `
-                    <div><strong>Algorithm:</strong> Greedy Nearest Neighbor</div>
-                    <div class="formula-box">min_dist = &radic;((x_i - x)^2 + (y_i - y)^2)</div>
-                    <div>Targeting closest detected stain.</div>
-                    <div id="math-vals"></div>
-                `;
-            } else if (status === "MAPPING" || status === "SCANNING" || status === "RETURNING") {
-                div.innerHTML = `
-                    <div><strong>Kinematics:</strong> Differential Drive</div>
-                    <div class="formula-box">
-                        x' = x + v &middot; cos(&theta;)<br>
-                        y' = y + v &middot; sin(&theta;)<br>
-                        &theta;' = &theta; + &omega;
-                    </div>
-                    <div id="math-vals"></div>
-                `;
-            } else if (status === "IDLE") {
-                div.innerHTML = `<div style="color:#666;">System Idle. No active calculations.</div>`;
-            }
-            // If PAUSED, do nothing (keep previous state)
-
-            if (latestMath) updateMathValues();
-        }
-
-        function updateMathValues() {
-            const div = document.getElementById("math-vals");
-            if (!div || !latestMath) return;
-            div.innerHTML = `
-                <div class="var-row"><span>Velocity (v)</span> <span class="var-val">${latestMath.v.toFixed(1)} cm/s</span></div>
-                <div class="var-row"><span>Ang. Vel (&omega;)</span> <span class="var-val">${latestMath.omega.toFixed(2)} rad/s</span></div>
-                <div class="var-row"><span>Theta (&theta;)</span> <span class="var-val">${latestMath.theta.toFixed(2)} rad</span></div>
-            `;
-        }
-
         function wsSend(cmd, payload = {}) {
             ws.send(JSON.stringify({ ...payload, cmd }));
         }
 
         function updateConfig() {
-            if (!simMode) return;
             const w = parseFloat(document.getElementById("simW").value);
             const h = parseFloat(document.getElementById("simH").value);
             const sz = parseFloat(document.getElementById("simSize").value);
             wsSend("set_sim_config", { w, h, size: sz, overlap: 0.5 });
+            sendStains();
             draw();
         }
 
         function resetSim() {
-            if (!simMode) return;
             wsSend("reset_sim");
-            // stains = []; // User might keep stains
-            mapPts = []; path = []; plan = []; foundStains = [];
+            mapPts = [];
+            path = [];
+            plan = [];
+            foundStains = [];
+            document.getElementById("pts-count").innerText = "0";
+            document.getElementById("stain-count").innerText = "0";
+            document.getElementById("stain-list").innerHTML = "";
             sendStains();
             draw();
-            log("Simulation Reset");
         }
 
         function actionMapping() {
-            if (simMode) updateConfig();
+            updateConfig();
             wsSend("start_mapping");
         }
 
@@ -717,7 +454,6 @@
             stains.push({ x: cx, y: cy, id: Date.now() });
             sendStains();
             draw();
-            log("Spawned debris");
         }
 
         function sendStains() {
@@ -728,9 +464,6 @@
             foundStains = [];
             document.getElementById("stain-count").innerText = "0";
             document.getElementById("stain-list").innerHTML = "";
-            // Optional: tell backend to clear detections? 
-            // Currently backend clears on RUN. 
-            log("Detections Cleared");
         }
 
         function togglePause() {
@@ -742,49 +475,24 @@
             wsSend("set_speed", { speed: v });
         }
 
-        function downloadLogs() {
-            const txt = document.getElementById("log-area").innerText + "\n\n=== AI LOGS ===\n" + document.getElementById("ai-log-area").innerText;
-            const blob = new Blob([txt], { type: "text/plain" });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = "robot_logs.txt";
-            a.click();
-        }
-
-        function log(txt) {
-            const d = document.createElement("div");
-            d.style.marginBottom = "4px";
-            d.innerHTML = `<span style="opacity:0.5">[${new Date().toLocaleTimeString()}]</span> ${txt}`;
-            document.getElementById("log-area").prepend(d);
-        }
-
-        function logAI(txt) {
-            const d = document.createElement("div");
-            d.style.marginBottom = "4px";
-            d.innerText = "> " + txt;
-            document.getElementById("ai-log-area").prepend(d);
-        }
-
-        // Render
         const worldToScreen = (wx, wy) => ({
             x: wx * view.scale + view.x,
             y: view.y - wy * view.scale
         });
+
         const screenToWorld = (sx, sy) => ({
             x: (sx - view.x) / view.scale,
             y: (view.y - sy) / view.scale
         });
 
         function draw() {
-            // BG
             ctx.fillStyle = "#000";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             const w = parseFloat(document.getElementById("simW").value) || 200;
             const h = parseFloat(document.getElementById("simH").value) || 150;
 
-            // Draw Panel Texture (tiled)
-            if (assetsLoaded >= 1 && simMode) {
+            if (assetsLoaded >= 1) {
                 ctx.save();
                 const pat = ctx.createPattern(imgPanel, "repeat");
 
@@ -810,17 +518,16 @@
                 ctx.stroke();
                 ctx.restore();
                 ctx.restore();
-            } else if (simMode) {
+            } else {
                 const tl = worldToScreen(0, h);
                 const br = worldToScreen(w, 0);
                 ctx.strokeStyle = "#444";
                 ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
             }
 
-            // Stains
             for (let s of stains) {
                 const scr = worldToScreen(s.x, s.y);
-                if (simMode && assetsLoaded >= 2) {
+                if (assetsLoaded >= 2) {
                     const sz = 30 * view.scale;
                     ctx.drawImage(imgDirt, scr.x - sz / 2, scr.y - sz / 2, sz, sz);
                 } else {
@@ -831,7 +538,6 @@
                 }
             }
 
-            // Path
             if (document.getElementById("pathToggle").checked && path.length > 0) {
                 ctx.beginPath();
                 ctx.strokeStyle = "#10b981";
@@ -845,7 +551,6 @@
                 ctx.stroke();
             }
 
-            // Planned Path
             if (plan.length > 0) {
                 ctx.beginPath();
                 ctx.strokeStyle = "#fbbf24";
@@ -861,36 +566,29 @@
                 ctx.setLineDash([]);
             }
 
-            // Map Pts
             ctx.fillStyle = "rgba(59, 130, 246, 0.5)";
             for (let p of mapPts) {
                 const s = worldToScreen(p.x, p.y);
                 ctx.fillRect(s.x, s.y, 4 * view.scale, 4 * view.scale);
             }
 
-            // Robot
             ctx.save();
             const rPos = worldToScreen(robot.x, robot.y);
             ctx.translate(rPos.x, rPos.y);
-
             ctx.rotate(robot.angle);
 
-            const rSz = 28; // cm
+            const rSz = 28;
             const sz = rSz * view.scale;
 
-            // Body
             ctx.fillStyle = "#e4e4e7";
             ctx.shadowColor = "rgba(0,0,0,0.5)";
             ctx.shadowBlur = 10;
             ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
 
-            // Front indicator (Red strip at "Front" - Top Local)
             ctx.fillStyle = "#ef4444";
             ctx.fillRect(-2, -sz / 2, 4, sz / 2);
-
             ctx.restore();
 
-            // Detections
             ctx.strokeStyle = "#ef4444";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 0;
