@@ -196,7 +196,7 @@ struct CliffSensors {
   bool leftCliff = false;
 };
 
-// Majority vote filter: reduces one-bad-reading perimeter leaks
+// Take multiple readings so one bad sensor value does not break the map.
 static bool filteredIsCliff(Ultrasonic &s, int samples = 5,
                             int votesRequired = 3) {
   int votes = 0;
@@ -242,7 +242,7 @@ exportMapJsonV2(const std::vector<std::pair<int, int>> &perimeterTrace,
   if (!f.is_open())
     return;
 
-  // Densify trace to guarantee watertight boundary
+  // Fill the gaps between points so the border becomes one closed line.
   std::vector<std::pair<int, int>> denseTrace;
   denseTrace.reserve(perimeterTrace.size() * 2);
 
@@ -324,7 +324,7 @@ bool runMapping() {
     if (perimeterTrace.empty() || perimeterTrace.back().first != x ||
         perimeterTrace.back().second != y) {
       perimeterTrace.push_back({x, y});
-      // New: Emit JSON map update
+      // send this map point to the UI
       std::cout << "{\"type\":\"map_point\", \"x\":" << x << ", \"y\":" << y
                 << "}" << std::endl;
     }
@@ -349,7 +349,7 @@ bool runMapping() {
   while (steps++ < MAX_STEPS && state != State::DONE && state != State::FAIL) {
     CliffSensors cs = readCliffSensorsFiltered(sonarFront, sonarLeft);
 
-    // JSON Status Update
+    // send current mapping status
     std::cout << "{\"type\":\"pose\", \"x\":" << pose.x << ", \"y\":" << pose.y
               << ", \"dir\":\"" << dirName(pose.dir) << "\""
               << ", \"cliff_l\":" << cs.leftCliff
@@ -358,16 +358,15 @@ bool runMapping() {
 
     if (state == State::FIND_INITIAL_EDGE) {
       if (cs.frontCliff) {
-        // Found edge in front. Turn Right to align left side to it?
-        // If we turn right, the edge is on our Left.
+        // Found the edge in front. After turning right, it should be on the left.
         drive.turnRight90();
         turnRight(pose);
-        state = State::FIND_EDGE_LEFT; // Now ensure we are adjacent
+        state = State::FIND_EDGE_LEFT;
       } else if (cs.leftCliff) {
-        // Found edge on left
-        state = State::FIND_CORNER; // or FIND_EDGE_LEFT?
+        // Found the edge on the left side.
+        state = State::FIND_CORNER;
       } else {
-        // No cliff, keep finding
+        // Keep moving until an edge is found.
         drive.forwardCell();
         stepForward(pose);
       }
@@ -375,13 +374,7 @@ bool runMapping() {
       if (cs.leftCliff) {
         state = State::FIND_CORNER;
       } else {
-        // If we just turned right from Initial Edge, we EXPECT leftCliff.
-        // If not, maybe we need to move?
-        // But original logic was "Turn Right until Left Cliff".
-        // If we are at edge, turned right. Left sensor should see it.
-        // If not, maybe we are too far?
-        // Let's stick to original logic here for now, but adding Move could
-        // help. But main fix is FIND_INITIAL_EDGE.
+        // Try another turn until the left sensor sees the edge.
         drive.turnRight90();
         turnRight(pose);
       }

@@ -9,9 +9,8 @@
 #include "mapping.h"
 #include "navigation.h"
 
-// Simple JSON command parser
-// We rely on the caller sending one JSON object per line
-// e.g. {"cmd": "start_mapping"}
+// The Python server sends one JSON command per line, for example:
+// {"cmd": "start_mapping"}
 
 void printJsonStatus(const std::string &status, const std::string &msg = "") {
   std::cout << "{\"type\":\"status\", \"status\": \"" << status
@@ -49,7 +48,7 @@ int main() {
   }
   else if (line.find("stop") != std::string::npos) {
     printJsonStatus("STOPPED", "Stopping...");
-    // In a real threaded scenario we'd signal a stop flag
+    // For now stop just exits the loop.
     break;
   }
 }

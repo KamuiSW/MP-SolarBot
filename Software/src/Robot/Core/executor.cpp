@@ -114,7 +114,7 @@ static bool parseVisionResult(const std::string &s, bool &dirty,
 
 static bool runVisionOnce(bool &dirty, double &score) {
 #ifdef MOCK_HARDWARE
-  // Smart Simulation: Check virtual stains
+  // In mock mode we check the stains from the simulated environment.
   double simScore = MockEnvironment::instance().checkForStain();
   if (simScore > 50.0) {
     dirty = true;
@@ -244,7 +244,7 @@ static Direction turnTo(Direction cur, Direction target, DifferentialDrive &d) {
 }
 
 static void intensiveCleanAt(int x, int y, int dwell_ms) {
-  std::cout << "[Intensive] TODO user code at (" << x << "," << y << ") for "
+  std::cout << "[Intensive] cleaning at (" << x << "," << y << ") for "
             << dwell_ms << "ms\n";
   delay(dwell_ms);
 }
@@ -360,7 +360,7 @@ bool runExecuteNavigation() {
           d = turnTo(d, needed, drive);
           drive.forwardCell();
           sx += (tx > sx ? 1 : -1);
-          // Check for stain
+          // check if this cell has a stain
           for (const auto &st : stains) {
             if (st.x == sx && st.y == sy &&
                 cleaned.find({sx, sy}) == cleaned.end()) {
@@ -374,7 +374,7 @@ bool runExecuteNavigation() {
           d = turnTo(d, needed, drive);
           drive.forwardCell();
           sy += (ty > sy ? 1 : -1);
-          // Check for stain
+          // check if this cell has a stain
           for (const auto &st : stains) {
             if (st.x == sx && st.y == sy &&
                 cleaned.find({sx, sy}) == cleaned.end()) {

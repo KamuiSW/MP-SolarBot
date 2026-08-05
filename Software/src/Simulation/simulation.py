@@ -286,7 +286,7 @@ class RobotSimulation:
         await send_json_cb({"type": "status", "status": "RETURNING", "msg": "Going Home"})
         await self.move_to(self.start_pose['x'], self.start_pose['y'], send_json_cb, detect=False)
         
-        # Enforce Homing Orientation (Up/0 degrees)
+        # turn back to the starting angle
         logger.info("Aligning to Home Orientation (0 deg)")
         target_angle = 0.0
         
@@ -298,7 +298,7 @@ class RobotSimulation:
             
             if abs(diff) < 0.05: break
             
-            # Turn in the shortest direction
+            # choose the shorter turn direction
             turn = 0.15 if diff > 0 else -0.15
             self.angle += turn
             
@@ -390,13 +390,13 @@ class RobotSimulation:
             await send_json_cb({"type": "status", "status": "CLEANING", "msg": "Removing Stain..."})
             await self.wait_sim(2.0)
  
-            # Remove from simulation state
+            # remove the stain after cleaning it
             self.stains = [s for s in self.stains if math.hypot(s['x']-self.x, s['y']-self.y) > 10]
             self.detected_stains = [s for s in self.detected_stains if math.hypot(s['x']-self.x, s['y']-self.y) > 10]
             
             self.update_world_image()
             
-            # Broadcast removal to UI
+            # tell the UI that this stain is gone
             await send_json_cb({
                 "type": "stain_removed",
                 "x": target['x'],
@@ -448,10 +448,10 @@ class RobotSimulation:
             await asyncio.sleep(0.02 / max(0.1, self.sim_speed))
             
             if ctr % 10 == 0:
-                # Math broadcasting
+                # send some movement values to the UI
                 vl, vr = 0, 0
                 if dist > 0.1:
-                    vl = (mv / 0.1) - (self.robot_size/2 * turn_speed) # Fake wheel velocities for display
+                    vl = (mv / 0.1) - (self.robot_size/2 * turn_speed) # fake wheel speeds for display
                     vr = (mv / 0.1) + (self.robot_size/2 * turn_speed)
                 
                 math_data = {

@@ -49,7 +49,7 @@ static bool extractPointsArray(const std::string& s, const std::string& arrayKey
     size_t lb = s.find('[', k);
     if(lb == std::string::npos) return false;
 
-    // Find matching closing bracket (simple version: first ']' after lb)
+    // This parser is simple, so it just uses the first closing bracket.
     size_t rb = s.find(']', lb);
     if(rb == std::string::npos) return false;
 
@@ -322,7 +322,7 @@ bool runNavigation() {
     double cellSizeCm = CELL_SIZE_CM;
     extractNumberAfterKey(js, "cell_size_cm", cellSizeCm);
 
-    // Prefer perimeter_trace if available
+    // Use the ordered trace if it exists.
     std::vector<Pt> trace;
     bool hasTrace = extractPointsArray(js, "perimeter_trace", trace);
 
@@ -339,7 +339,7 @@ bool runNavigation() {
     std::unordered_set<long long> edgeSet;
     edgeSet.reserve(perimeter.size()*4);
 
-    // Densify boundary segments (watertight)
+    // Fill the gaps between border points.
     if(perimeter.size() >= 2){
         for(size_t i=0;i+1<perimeter.size();i++){
             addManhattanToSet(edgeSet, perimeter[i].x, perimeter[i].y, perimeter[i+1].x, perimeter[i+1].y);
@@ -364,7 +364,7 @@ bool runNavigation() {
     int stepCells = (int)std::ceil(ROBOT_WIDTH_CM / cellSizeCm);
     stepCells = std::max(1, stepCells);
 
-    // More conservative clearance than before (avoid deleting all inside)
+    // Keep some distance from the edge so the robot should fit.
     int clearanceCells = (int)std::ceil((ROBOT_WIDTH_CM * 0.5) / cellSizeCm);
     clearanceCells = std::max(1, clearanceCells);
 

@@ -8,11 +8,10 @@ import os
 import uvicorn
 from contextlib import asynccontextmanager
 
-# Setup Logging
+# logging for the server
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("RobotServer")
 
-# Import Simulation
 from simulation import RobotSimulation
 
 sim_robot = RobotSimulation()
@@ -37,7 +36,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# Async Bridge for Sim to talk to UI
+# lets the simulation send messages to the browser
 async def sim_output_bridge(data):
     await manager.broadcast(json.dumps(data))
 
@@ -45,17 +44,15 @@ async def sim_output_bridge(data):
 async def lifespan(app: FastAPI):
     logger.info("Server Starting - Sim Mode Ready")
     yield
-    # Cleanup
     sim_robot.is_running = False
 
 app = FastAPI(lifespan=lifespan)
 
-# Mount Static Files
 base_dir = os.path.dirname(os.path.abspath(__file__))
 static_dir = os.path.join(base_dir, "static")
 assets_dir = os.path.join(static_dir, "assets")
 
-# Ensure directories exist to prevent crash
+# create this folder if it is missing
 os.makedirs(assets_dir, exist_ok=True)
 
 app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
